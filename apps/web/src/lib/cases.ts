@@ -9,9 +9,12 @@ export const STATUS_CHIP: Record<CaseStatus, string> = {
   cancelled: "c-grey",
 };
 
-type Template = { stages: { key: string; label: Localised }[] };
+type Template = {
+  stages: { key: string; label: Localised }[];
+  requirements: { key: string; label: Localised }[];
+};
 
-/** Stage names in the reader's language, from the firm's country template. */
+/** Stage and checklist names in the reader's language, from the country template. */
 export function useStageLabels(jurisdiction = "CY") {
   const { i18n } = useTranslation();
   const template = useQuery({
@@ -21,11 +24,18 @@ export function useStageLabels(jurisdiction = "CY") {
     staleTime: Infinity,
   });
   const stages = template.data?.stages ?? [];
+  const requirements = template.data?.requirements ?? [];
+  const pick = (l: Localised | undefined) => l?.[i18n.resolvedLanguage ?? "en"] ?? l?.en;
   return {
     stages,
-    label: (key: string) => {
-      const l = stages.find((s) => s.key === key)?.label;
-      return l?.[i18n.resolvedLanguage ?? "en"] ?? l?.en ?? key;
+    label: (key: string) => pick(stages.find((s) => s.key === key)?.label) ?? key,
+    /** A document's title: translated for checklist items, as typed for anything else. */
+    documentTitle: (requirementKey: string | null | undefined, title: string) => {
+      // Older events carry only the English title, so match on that too.
+      const r = requirements.find(
+        (q) => q.key === requirementKey || (!requirementKey && q.label.en === title),
+      );
+      return pick(r?.label) ?? title;
     },
   };
 }

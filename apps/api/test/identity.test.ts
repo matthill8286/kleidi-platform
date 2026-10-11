@@ -11,6 +11,7 @@ import {
   TEST_SECRET,
   uniqueEmail,
   WEB_ORIGIN,
+  testStore,
 } from "./helpers.ts";
 
 // Integration: the full identity and firm journey against the local Postgres.
@@ -28,7 +29,7 @@ describe.skipIf(!process.env.DATABASE_URL || !process.env.DATABASE_ADMIN_URL)(
         secret: TEST_SECRET,
         trustedOrigins: [WEB_ORIGIN],
       });
-      app = await buildApp({ db, auth, webOrigin: WEB_ORIGIN });
+      app = await buildApp({ db, auth, webOrigin: WEB_ORIGIN, store: testStore() });
     });
     afterAll(async () => {
       await app.close();

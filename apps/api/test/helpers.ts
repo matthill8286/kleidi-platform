@@ -1,5 +1,6 @@
 import { createHmac, randomUUID } from "node:crypto";
 import type { FastifyInstance } from "fastify";
+import { createS3Store } from "@kleidi/modules/documents";
 
 export const WEB_ORIGIN = "http://localhost:5180";
 export const TEST_SECRET = "test-secret-that-is-at-least-32-characters-long";
@@ -28,7 +29,7 @@ export function client(app: FastifyInstance) {
   let firmId: string | null = null;
 
   async function call(
-    method: "GET" | "POST",
+    method: "GET" | "POST" | "PATCH",
     url: string,
     body?: unknown,
     extra: Record<string, string> = {},
@@ -58,6 +59,7 @@ export function client(app: FastifyInstance) {
     get: (url: string, headers?: Record<string, string>) => call("GET", url, undefined, headers),
     post: (url: string, body: unknown = {}, headers?: Record<string, string>) =>
       call("POST", url, body, headers),
+    patch: (url: string, body: unknown = {}) => call("PATCH", url, body),
     useFirm: (id: string) => {
       firmId = id;
     },
@@ -82,3 +84,14 @@ export async function enrolledUser(app: FastifyInstance, name: string, email = u
     throw new Error(`2FA verify failed: ${verify.statusCode} ${verify.body}`);
   return { c, email, name };
 }
+
+/** Local object storage; tests sign links for the storage host directly, without the proxy. */
+export const testStore = () =>
+  createS3Store({
+    endpoint: process.env.S3_ENDPOINT ?? "http://localhost:8333",
+    publicEndpoint: process.env.S3_ENDPOINT ?? "http://localhost:8333",
+    region: process.env.S3_REGION ?? "fr-par",
+    bucket: process.env.S3_BUCKET ?? "kleidi-documents",
+    accessKeyId: process.env.S3_ACCESS_KEY ?? "kleidi",
+    secretAccessKey: process.env.S3_SECRET_KEY ?? "kleidi-dev-secret",
+  });

@@ -147,7 +147,44 @@
       "stage": "moved the case to {{to}}",
       "stageBack": "moved the case back to {{to}}",
       "status": "marked the case {{to}}",
-      "party": "added {{name}} as {{role}}"
+      "party": "added {{name}} as {{role}}",
+      "uploaded": "uploaded {{title}} (v{{version}})",
+      "released": "{{title}} passed the virus scan",
+      "quarantined": "{{title}} failed the virus scan",
+      "updated": "updated {{title}}",
+      "flagged": "{{title}}: {{state}}"
+    },
+    "docs": {
+      "title": "Documents",
+      "summary": "{{ready}} of {{total}} ready",
+      "attention": "{{count}} need attention",
+      "current": "Current stage",
+      "items": "{{ready}}/{{total}}",
+      "states": {
+        "missing": "Missing",
+        "scanning": "Checking for viruses",
+        "ready": "Ready",
+        "infected": "Quarantined",
+        "failed": "Upload failed",
+        "expiring": "Expires soon",
+        "expired": "Expired"
+      },
+      "upload": "Upload",
+      "newVersion": "New version",
+      "download": "Download",
+      "uploading": "Uploading…",
+      "expires": "Expires {{date}}",
+      "expiredOn": "Expired {{date}}",
+      "quarantined": "Failed the virus scan ({{signature}}). It cannot be downloaded.",
+      "uploadedBy": "v{{version}} · {{name}} · {{date}}",
+      "firmOnly": "Firm only",
+      "shared": "Shared with client",
+      "other": "Other documents",
+      "addOther": "Add document",
+      "docTitle": "Document title",
+      "noOther": "No other documents yet.",
+      "history": "{{count}} earlier versions",
+      "tooBig": "Files can be at most 25 MB."
     }
   },
   "team": {

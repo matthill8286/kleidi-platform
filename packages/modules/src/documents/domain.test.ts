@@ -1,0 +1,68 @@
+import fc from "fast-check";
+import { describe, expect, it } from "vitest";
+import {
+  defaultExpiry,
+  itemState,
+  MAX_UPLOAD_BYTES,
+  needsAttention,
+  sortChecklist,
+  uploadProblem,
+  type ItemState,
+} from "./domain.ts";
+
+const today = new Date("2026-10-11T09:00:00Z");
+
+describe("document rules", () => {
+  it("accepts PDFs, images and Word files up to 25 MB", () => {
+    expect(
+      uploadProblem({ fileName: "deed.pdf", mimeType: "application/pdf", byteSize: 1000 }),
+    ).toBeNull();
+    expect(
+      uploadProblem({ fileName: "a.exe", mimeType: "application/x-msdownload", byteSize: 10 }),
+    ).toMatch(/type/);
+    expect(
+      uploadProblem({
+        fileName: "big.pdf",
+        mimeType: "application/pdf",
+        byteSize: MAX_UPLOAD_BYTES + 1,
+      }),
+    ).toMatch(/25 MB/);
+    expect(
+      uploadProblem({ fileName: "empty.pdf", mimeType: "application/pdf", byteSize: 0 }),
+    ).toMatch(/empty/);
+  });
+
+  it("dates stale searches from the upload day", () => {
+    expect(defaultExpiry(30, today)).toBe("2026-11-10");
+    expect(defaultExpiry(null, today)).toBeNull();
+  });
+
+  it("derives a checklist state from the scan and the expiry date", () => {
+    expect(itemState(null, null, today)).toBe("missing");
+    expect(itemState({ scanStatus: "uploading" }, null, today)).toBe("missing");
+    expect(itemState({ scanStatus: "pending" }, null, today)).toBe("scanning");
+    expect(itemState({ scanStatus: "infected" }, null, today)).toBe("infected");
+    expect(itemState({ scanStatus: "clean" }, null, today)).toBe("ready");
+    expect(itemState({ scanStatus: "clean" }, "2026-10-20", today)).toBe("expiring");
+    expect(itemState({ scanStatus: "clean" }, "2026-10-10", today)).toBe("expired");
+  });
+
+  it("puts every item needing attention above every item that does not", () => {
+    const states: ItemState[] = [
+      "missing",
+      "scanning",
+      "ready",
+      "infected",
+      "failed",
+      "expiring",
+      "expired",
+    ];
+    fc.assert(
+      fc.property(fc.array(fc.constantFrom(...states)), (picked) => {
+        const sorted = sortChecklist(picked.map((state, sortOrder) => ({ state, sortOrder })));
+        const firstCalm = sorted.findIndex((i) => !needsAttention(i.state));
+        return firstCalm < 0 || sorted.slice(firstCalm).every((i) => !needsAttention(i.state));
+      }),
+    );
+  });
+});

@@ -17,6 +17,9 @@ const PATHS: Record<string, string> = {
   logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   check: '<path d="M20 6L9 17l-5-5"/>',
+  lock: '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+  upload: '<path d="M12 16V4M7 9l5-5 5 5M4 20h16"/>',
+  download: '<path d="M12 4v12M7 11l5 5 5-5M4 20h16"/>',
   arrowRight: '<path d="M5 12h14M13 5l7 7-7 7"/>',
   arrowLeft: '<path d="M19 12H5M11 19l-7-7 7-7"/>',
   pause:

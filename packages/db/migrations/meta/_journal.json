@@ -22,6 +22,13 @@
       "when": 1791731156535,
       "tag": "0002_stiff_imperial_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791732600356,
+      "tag": "0003_sloppy_maestro",
+      "breakpoints": true
     }
   ]
 }

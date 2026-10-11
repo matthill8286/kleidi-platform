@@ -1,5 +1,6 @@
 export {
   addParty,
+  findCase,
   getCase,
   listCases,
   openCase,

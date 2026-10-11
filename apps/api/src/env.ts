@@ -7,6 +7,22 @@ const Env = z.object({
   WEB_ORIGIN: z.string().url().default("http://localhost:5180"),
   WEB_DIST: z.string().optional(),
   BETTER_AUTH_SECRET: z.string().min(32, "BETTER_AUTH_SECRET must be at least 32 characters"),
+  S3_ENDPOINT: z.string().url(),
+  // The host browsers use for signed links; locally the Vite proxy forwards it to storage.
+  S3_PUBLIC_ENDPOINT: z.string().url().optional(),
+  S3_REGION: z.string().default("fr-par"),
+  S3_BUCKET: z.string(),
+  S3_ACCESS_KEY: z.string(),
+  S3_SECRET_KEY: z.string(),
+});
+
+export const storageConfig = (env: Env) => ({
+  endpoint: env.S3_ENDPOINT,
+  publicEndpoint: env.S3_PUBLIC_ENDPOINT ?? env.S3_ENDPOINT,
+  region: env.S3_REGION,
+  bucket: env.S3_BUCKET,
+  accessKeyId: env.S3_ACCESS_KEY,
+  secretAccessKey: env.S3_SECRET_KEY,
 });
 
 export type Env = z.infer<typeof Env>;

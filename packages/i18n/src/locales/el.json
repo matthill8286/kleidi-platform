@@ -147,7 +147,44 @@
       "stage": "μετέφερε την υπόθεση στο στάδιο {{to}}",
       "stageBack": "επέστρεψε την υπόθεση στο στάδιο {{to}}",
       "status": "άλλαξε την κατάσταση σε {{to}}",
-      "party": "πρόσθεσε τον/την {{name}} ως {{role}}"
+      "party": "πρόσθεσε τον/την {{name}} ως {{role}}",
+      "uploaded": "μεταφόρτωσε {{title}} (έκδ. {{version}})",
+      "released": "{{title}}: πέρασε τον έλεγχο ιών",
+      "quarantined": "{{title}}: απέτυχε στον έλεγχο ιών",
+      "updated": "ενημέρωσε {{title}}",
+      "flagged": "{{title}}: {{state}}"
+    },
+    "docs": {
+      "title": "Έγγραφα",
+      "summary": "{{ready}} από {{total}} έτοιμα",
+      "attention": "{{count}} χρειάζονται προσοχή",
+      "current": "Τρέχον στάδιο",
+      "items": "{{ready}}/{{total}}",
+      "states": {
+        "missing": "Λείπει",
+        "scanning": "Έλεγχος για ιούς",
+        "ready": "Έτοιμο",
+        "infected": "Σε καραντίνα",
+        "failed": "Αποτυχία μεταφόρτωσης",
+        "expiring": "Λήγει σύντομα",
+        "expired": "Έληξε"
+      },
+      "upload": "Μεταφόρτωση",
+      "newVersion": "Νέα έκδοση",
+      "download": "Λήψη",
+      "uploading": "Μεταφόρτωση…",
+      "expires": "Λήγει {{date}}",
+      "expiredOn": "Έληξε {{date}}",
+      "quarantined": "Απέτυχε στον έλεγχο ιών ({{signature}}). Δεν μπορεί να γίνει λήψη.",
+      "uploadedBy": "έκδ. {{version}} · {{name}} · {{date}}",
+      "firmOnly": "Μόνο το γραφείο",
+      "shared": "Κοινόχρηστο με τον πελάτη",
+      "other": "Άλλα έγγραφα",
+      "addOther": "Προσθήκη εγγράφου",
+      "docTitle": "Τίτλος εγγράφου",
+      "noOther": "Δεν υπάρχουν άλλα έγγραφα.",
+      "history": "{{count}} προηγούμενες εκδόσεις",
+      "tooBig": "Τα αρχεία μπορούν να είναι έως 25 MB."
     }
   },
   "team": {

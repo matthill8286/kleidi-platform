@@ -27,3 +27,8 @@ variable "db_admin_password" {
   type      = string
   sensitive = true
 }
+
+variable "web_origin" {
+  description = "The web app's public origin, allowed to upload to the documents bucket"
+  type        = string
+}

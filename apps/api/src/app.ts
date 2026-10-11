@@ -11,12 +11,14 @@ import {
   type ZodTypeProvider,
 } from "fastify-type-provider-zod";
 import type { Db } from "@kleidi/db";
+import type { ObjectStore } from "@kleidi/modules/documents";
 import type { Auth } from "@kleidi/modules/identity";
 import { registerAuthRoutes } from "./plugins/auth-routes.ts";
 import { createContext } from "./plugins/context.ts";
 import { registerErrorHandler } from "./plugins/errors.ts";
 import { createIdempotency } from "./plugins/idempotency.ts";
 import { caseRoutes } from "./routes/cases.ts";
+import { documentRoutes } from "./routes/documents.ts";
 import { firmRoutes } from "./routes/firms.ts";
 import { healthRoutes } from "./routes/health.ts";
 import { invitationRoutes } from "./routes/invitations.ts";
@@ -26,6 +28,7 @@ import { meRoutes } from "./routes/me.ts";
 export type AppDeps = {
   db: Db;
   auth: Auth;
+  store: ObjectStore;
   webOrigin: string;
   webDist?: string | undefined;
   logger?: boolean;
@@ -63,6 +66,13 @@ export async function buildApp(deps: AppDeps) {
   await typed.register(invitationRoutes, { db: deps.db, ctx, prefix: "/api/v1" });
   const idempotent = createIdempotency(deps.db);
   await typed.register(caseRoutes, { db: deps.db, ctx, idempotent, prefix: "/api/v1" });
+  await typed.register(documentRoutes, {
+    db: deps.db,
+    store: deps.store,
+    ctx,
+    idempotent,
+    prefix: "/api/v1",
+  });
   app.get("/openapi.json", { schema: { hide: true } }, () => app.swagger());
 
   // In production the API container also serves the built React app.

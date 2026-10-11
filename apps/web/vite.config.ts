@@ -10,6 +10,7 @@ export default defineConfig({
   server: {
     port: 5180,
     strictPort: true,
-    proxy: { "/api": api, "/health": api },
+    // Signed upload links point here; Host is kept, so the signature still matches.
+    proxy: { "/api": api, "/health": api, "/kleidi-documents": "http://localhost:8333" },
   },
 });

@@ -23,6 +23,10 @@ jobs:
     env:
       DATABASE_URL: postgres://kleidi_app:kleidi_app@localhost:5432/kleidi
       DATABASE_ADMIN_URL: postgres://kleidi_admin:kleidi_admin@localhost:5432/kleidi
+      S3_ENDPOINT: http://localhost:8333
+      S3_BUCKET: kleidi-documents
+      S3_ACCESS_KEY: kleidi
+      S3_SECRET_KEY: kleidi-dev-secret
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -31,6 +35,12 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # SeaweedFS needs a start command, which service containers cannot take. ClamAV is left
+      # out because its signatures take minutes to load; the tests then use a stand-in scanner.
+      - name: Start object storage
+        run: |
+          docker run -d -p 8333:8333 chrislusf/seaweedfs:latest server -s3 -dir=/data -ip.bind=0.0.0.0
+          for i in $(seq 1 30); do curl -sf http://localhost:8333/ >/dev/null && break; sleep 2; done
       - name: Create the app role
         run: psql "$DATABASE_ADMIN_URL" -f infra/docker/postgres-init.sql
       - run: pnpm db:migrate

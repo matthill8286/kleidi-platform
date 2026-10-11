@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
+import { CaseDocumentsCard } from "../../../components/case-documents.tsx";
 import { Avatar, ErrorAlert, Field, Icon } from "../../../components/ui.tsx";
 import {
   api,
@@ -12,7 +13,7 @@ import {
   type PartyRole,
   type Transition,
 } from "../../../lib/api.ts";
-import { newKey, STATUS_CHIP } from "../../../lib/cases.ts";
+import { newKey, STATUS_CHIP, useStageLabels } from "../../../lib/cases.ts";
 
 export const Route = createFileRoute("/_app/cases/$caseId")({ component: CasePage });
 
@@ -120,6 +121,7 @@ function CasePage() {
       <div className="case-grid">
         <div style={{ display: "grid", gap: 18, alignContent: "start" }}>
           <Actions c={c} label={label} onWrite={onWrite} />
+          <CaseDocumentsCard caseId={c.id} closed={c.status === "cancelled"} />
           <section className="card">
             <div className="card-head">
               <h2>{t("cases.detail.timeline")}</h2>
@@ -152,7 +154,12 @@ function CasePage() {
         </div>
         <div style={{ display: "grid", gap: 18, alignContent: "start" }}>
           <Parties c={c} onWrite={onWrite} />
-          <ActivityCard items={activity.data} label={label} date={date} />
+          <ActivityCard
+            jurisdiction={c.jurisdictionCode}
+            items={activity.data}
+            label={label}
+            date={date}
+          />
         </div>
       </div>
     </div>
@@ -350,10 +357,12 @@ function Parties({
 }
 
 function ActivityCard({
+  jurisdiction,
   items,
   label,
   date,
 }: {
+  jurisdiction: string;
   items: Activity | undefined;
   label: (key: string) => string;
   date: (iso: string) => string;
@@ -362,8 +371,11 @@ function ActivityCard({
   const time = (iso: string) =>
     `${date(iso)}, ${new Date(iso).toLocaleTimeString(i18n.resolvedLanguage, { hour: "2-digit", minute: "2-digit" })}`;
 
+  const { documentTitle } = useStageLabels(jurisdiction);
+
   function describe(a: Activity[number]) {
     const m = a.metadata as Record<string, string | null>;
+    const title = documentTitle(m.requirementKey, m.title ?? "");
     switch (a.action) {
       case "cases.StageChanged":
         return t(m.direction === "back" ? "cases.events.stageBack" : "cases.events.stage", {
@@ -375,6 +387,19 @@ function ActivityCard({
         return t("cases.events.party", { name: m.fullName, role: t(`cases.roles.${m.role}`) });
       case "cases.CaseOpened":
         return t("cases.events.opened");
+      case "documents.VersionUploaded":
+        return t("cases.events.uploaded", { title, version: m.version });
+      case "documents.VersionReleased":
+        return t("cases.events.released", { title });
+      case "documents.VersionQuarantined":
+        return t("cases.events.quarantined", { title });
+      case "documents.DocumentUpdated":
+        return t("cases.events.updated", { title });
+      case "documents.ExpiryFlagged":
+        return t("cases.events.flagged", {
+          title,
+          state: t(`cases.docs.states.${m.state}`),
+        });
       default:
         return a.action;
     }
@@ -390,7 +415,9 @@ function ActivityCard({
           {[...items].reverse().map((a) => (
             <li key={a.id}>
               <span>
-                <b>{a.actorName ?? "Kleidi"}</b> {describe(a)}
+                {/* System events, such as virus scans, have no person behind them. */}
+                {a.actorName && <b>{a.actorName} </b>}
+                {describe(a)}
                 {typeof a.metadata.reason === "string" && a.metadata.reason && (
                   <span className="muted"> · “{a.metadata.reason}”</span>
                 )}

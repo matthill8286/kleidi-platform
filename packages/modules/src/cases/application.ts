@@ -399,3 +399,20 @@ export async function listCases(
     };
   });
 }
+
+/** The few case facts other modules need. Null when the case is not in the current firm. */
+export async function findCase(tx: Tx, caseId: string) {
+  const [row] = await tx
+    .select({
+      id: cases.id,
+      reference: cases.reference,
+      jurisdictionCode: cases.jurisdictionCode,
+      status: cases.status,
+      currentStageKey: cases.currentStageKey,
+      assignedLawyerId: cases.assignedLawyerId,
+    })
+    .from(cases)
+    .where(eq(cases.id, caseId))
+    .limit(1);
+  return row ?? null;
+}

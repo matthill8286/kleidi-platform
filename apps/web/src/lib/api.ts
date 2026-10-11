@@ -77,6 +77,49 @@ export type Transition =
   | { kind: "resume" }
   | { kind: "stepBack" | "hold" | "cancel"; reason: string };
 
+export type ItemState =
+  "missing" | "scanning" | "ready" | "infected" | "failed" | "expiring" | "expired";
+
+export type DocumentView = {
+  id: string;
+  title: string;
+  requirementKey: string | null;
+  visibility: "client" | "firm";
+  expiresOn: string | null;
+  state: ItemState;
+  versions: {
+    id: string;
+    version: number;
+    fileName: string;
+    mimeType: string;
+    byteSize: number;
+    scanStatus: "uploading" | "pending" | "clean" | "infected" | "failed";
+    scanDetail: string | null;
+    uploadedBy: string | null;
+    createdAt: string;
+  }[];
+};
+
+export type CaseDocuments = {
+  stages: {
+    key: string;
+    label: Localised;
+    position: "past" | "current" | "future";
+    items: {
+      requirementKey: string;
+      label: Localised;
+      help: Localised;
+      expiryDays: number | null;
+      state: ItemState;
+      document: DocumentView | null;
+    }[];
+  }[];
+  other: DocumentView[];
+  summary: { total: number; ready: number; attention: number };
+};
+
+export type UploadTarget = { requirementKey: string } | { documentId: string } | { title: string };
+
 /** An RFC 9457 problem from the API, with its stable code. */
 export class ApiError extends Error {
   readonly status: number;
@@ -174,4 +217,41 @@ export const api = {
     ),
   addParty: (id: string, version: number, body: PartyInput, key: string) =>
     request<CaseDetail>("POST", `/api/v1/cases/${id}/parties`, body, writeHeaders(key, version)),
+  caseDocuments: (id: string) => request<CaseDocuments>("GET", `/api/v1/cases/${id}/documents`),
+  downloadLink: (versionId: string) =>
+    request<{ url: string }>("GET", `/api/v1/documents/versions/${versionId}/download`),
+  updateDocument: (
+    id: string,
+    body: { visibility?: "client" | "firm"; expiresOn?: string | null },
+  ) => request<void>("PATCH", `/api/v1/documents/${id}`, body),
+  /** Asks for a signed link, sends the file straight to storage, then confirms it arrived. */
+  async upload(caseId: string, target: UploadTarget, file: File, key: string) {
+    const link = await request<{
+      versionId: string;
+      uploadUrl: string;
+      uploadHeaders: Record<string, string>;
+    }>(
+      "POST",
+      `/api/v1/cases/${caseId}/documents/uploads`,
+      {
+        ...target,
+        fileName: file.name,
+        mimeType: file.type || "application/octet-stream",
+        byteSize: file.size,
+      },
+      { "idempotency-key": key },
+    );
+    const put = await fetch(link.uploadUrl, {
+      method: "PUT",
+      headers: link.uploadHeaders,
+      body: file,
+    });
+    if (!put.ok)
+      throw new ApiError(put.status, "upload_failed", "The upload did not finish. Try again.");
+    return request<{ scanStatus: string }>(
+      "POST",
+      `/api/v1/documents/versions/${link.versionId}/complete`,
+      {},
+    );
+  },
 };

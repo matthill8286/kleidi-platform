@@ -3,6 +3,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { afterAll, describe, expect, it } from "vitest";
 import { createDb, schema, withFirm } from "@kleidi/db";
 import type { StoredEvent } from "@kleidi/kernel";
+import type { ObjectStore } from "@kleidi/modules/documents";
 import { createFirm, inviteMember } from "@kleidi/modules/firms";
 import type { Notifier, OutboundMessage } from "@kleidi/modules/notifications";
 import { buildConsumers } from "../src/consumers.ts";
@@ -18,7 +19,13 @@ describe.skipIf(!process.env.DATABASE_URL || !process.env.DATABASE_ADMIN_URL)(
 
     const sent: OutboundMessage[] = [];
     const notifier: Notifier = { send: async (m) => (sent.push(m), { providerId: randomUUID() }) };
-    const consumers = buildConsumers({ db, notifier, appUrl: "http://localhost:5180" });
+    const consumers = buildConsumers({
+      db,
+      notifier,
+      appUrl: "http://localhost:5180",
+      store: {} as ObjectStore,
+      scanner: { scan: async () => ({ clean: true }) },
+    });
 
     it("delivers each event to its consumers exactly once", async () => {
       const [user] = await admin.db

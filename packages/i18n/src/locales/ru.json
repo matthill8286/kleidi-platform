@@ -147,7 +147,44 @@
       "stage": "перевёл(а) дело на этап «{{to}}»",
       "stageBack": "вернул(а) дело на этап «{{to}}»",
       "status": "изменил(а) статус на «{{to}}»",
-      "party": "добавил(а) {{name}} как {{role}}"
+      "party": "добавил(а) {{name}} как {{role}}",
+      "uploaded": "загрузил(а) {{title}} (в{{version}})",
+      "released": "{{title}}: проверка на вирусы пройдена",
+      "quarantined": "{{title}}: не прошёл проверку на вирусы",
+      "updated": "обновил(а) {{title}}",
+      "flagged": "{{title}}: {{state}}"
+    },
+    "docs": {
+      "title": "Документы",
+      "summary": "Готово {{ready}} из {{total}}",
+      "attention": "Требуют внимания: {{count}}",
+      "current": "Текущий этап",
+      "items": "{{ready}}/{{total}}",
+      "states": {
+        "missing": "Нет",
+        "scanning": "Проверка на вирусы",
+        "ready": "Готово",
+        "infected": "В карантине",
+        "failed": "Ошибка загрузки",
+        "expiring": "Скоро истекает",
+        "expired": "Истёк"
+      },
+      "upload": "Загрузить",
+      "newVersion": "Новая версия",
+      "download": "Скачать",
+      "uploading": "Загрузка…",
+      "expires": "Истекает {{date}}",
+      "expiredOn": "Истёк {{date}}",
+      "quarantined": "Не прошёл проверку на вирусы ({{signature}}). Скачать нельзя.",
+      "uploadedBy": "в{{version}} · {{name}} · {{date}}",
+      "firmOnly": "Только для фирмы",
+      "shared": "Доступен клиенту",
+      "other": "Другие документы",
+      "addOther": "Добавить документ",
+      "docTitle": "Название документа",
+      "noOther": "Других документов пока нет.",
+      "history": "Предыдущих версий: {{count}}",
+      "tooBig": "Размер файла не более 25 МБ."
     }
   },
   "team": {

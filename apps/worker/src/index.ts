@@ -2,7 +2,11 @@ import { PgBoss } from "pg-boss";
 import { createDb } from "@kleidi/db";
 import type { StoredEvent } from "@kleidi/kernel";
 import { announceDueReminders } from "@kleidi/modules/deadlines";
-import { summariseExpiringDocuments } from "@kleidi/modules/documents";
+import {
+  createClamdScanner,
+  createS3Store,
+  flagExpiringDocuments,
+} from "@kleidi/modules/documents";
 import { createSmtpNotifier } from "@kleidi/modules/notifications";
 import { buildConsumers, queueFor } from "./consumers.ts";
 import { relayToConsumers } from "./relay.ts";
@@ -13,12 +17,23 @@ const env = {
   smtpHost: process.env.SMTP_HOST ?? "localhost",
   smtpPort: Number(process.env.SMTP_PORT ?? 1025),
   mailFrom: process.env.MAIL_FROM ?? "Kleidi <no-reply@kleidi.local>",
+  clamdHost: process.env.CLAMD_HOST ?? "localhost",
+  clamdPort: Number(process.env.CLAMD_PORT ?? 3310),
 };
 if (!env.databaseUrl) throw new Error("DATABASE_URL is not set");
 
 const { db, close } = createDb(env.databaseUrl, { max: 5 });
 const notifier = createSmtpNotifier({ host: env.smtpHost, port: env.smtpPort, from: env.mailFrom });
-const consumers = buildConsumers({ db, notifier, appUrl: env.appUrl });
+const store = createS3Store({
+  endpoint: process.env.S3_ENDPOINT ?? "http://localhost:8333",
+  publicEndpoint: process.env.S3_ENDPOINT ?? "http://localhost:8333",
+  region: process.env.S3_REGION ?? "fr-par",
+  bucket: process.env.S3_BUCKET ?? "kleidi-documents",
+  accessKeyId: process.env.S3_ACCESS_KEY ?? "",
+  secretAccessKey: process.env.S3_SECRET_KEY ?? "",
+});
+const scanner = createClamdScanner({ host: env.clamdHost, port: env.clamdPort });
+const consumers = buildConsumers({ db, notifier, appUrl: env.appUrl, store, scanner });
 
 // The db migration creates the pgboss schema and hands it to the app role, which cannot create schemas.
 const boss = new PgBoss({
@@ -39,7 +54,7 @@ for (const consumer of consumers) {
 
 const scheduled = [
   { name: "deadline-reminders", cron: "*/15 * * * *", run: () => announceDueReminders(db) },
-  { name: "document-expiry", cron: "0 6 * * *", run: () => summariseExpiringDocuments(db) },
+  { name: "document-expiry", cron: "0 6 * * *", run: () => flagExpiringDocuments(db) },
 ];
 for (const job of scheduled) {
   await boss.createQueue(job.name, { retryLimit: 5, retryBackoff: true });

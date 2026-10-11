@@ -1,7 +1,8 @@
 import { createDb } from "@kleidi/db";
+import { createS3Store } from "@kleidi/modules/documents";
 import { createAuth } from "@kleidi/modules/identity";
 import { buildApp } from "./app.ts";
-import { loadEnv } from "./env.ts";
+import { loadEnv, storageConfig } from "./env.ts";
 
 const env = loadEnv();
 const { db, close } = createDb(env.DATABASE_URL);
@@ -11,9 +12,12 @@ const auth = createAuth({
   secret: env.BETTER_AUTH_SECRET,
   trustedOrigins: [env.WEB_ORIGIN],
 });
+const store = createS3Store(storageConfig(env));
+await store.ensureBucket();
 const app = await buildApp({
   db,
   auth,
+  store,
   webOrigin: env.WEB_ORIGIN,
   webDist: env.WEB_DIST,
   logger: true,

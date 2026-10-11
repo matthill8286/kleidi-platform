@@ -688,6 +688,84 @@ h2 {
   border-top: 0;
 }
 
+/* Documents */
+.c-red {
+  background: var(--red-soft);
+  color: var(--red);
+}
+.btn.small {
+  padding: 6px 10px;
+  font-size: 12.5px;
+}
+.btn.small .i {
+  width: 14px;
+  height: 14px;
+}
+.doc-stage {
+  border-top: 1px solid var(--line);
+}
+.doc-stage-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 18px;
+  background: none;
+  border: 0;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  color: var(--ink);
+}
+.doc-stage-head.static {
+  cursor: default;
+}
+.doc-stage-head:not(.static):hover {
+  background: var(--surface-2);
+}
+.caret {
+  display: inline-block;
+  width: 12px;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  transition: transform 0.15s;
+}
+.caret.open {
+  transform: rotate(90deg);
+}
+.doc-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px 18px 12px 40px;
+  border-top: 1px dashed var(--line);
+}
+.doc-row .alert {
+  margin-top: 8px;
+}
+.doc-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.history {
+  margin-top: 4px;
+}
+.history summary {
+  cursor: pointer;
+}
+.link {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--blue);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 @media (max-width: 960px) {
   .team-grid,
   .case-grid {
@@ -704,6 +782,10 @@ h2 {
   .grid-2,
   .party-row {
     grid-template-columns: 1fr;
+  }
+  .doc-row {
+    flex-direction: column;
+    padding-left: 18px;
   }
 }
 @media (max-width: 860px) {

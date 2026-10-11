@@ -2,6 +2,12 @@ import type { Db } from "@kleidi/db";
 import type { StoredEvent } from "@kleidi/kernel";
 import { AUDIT_CONSUMER, recordAuditFromEvent } from "@kleidi/modules/audit";
 import {
+  scanUploadedVersion,
+  SCANNER_CONSUMER,
+  type ObjectStore,
+  type Scanner,
+} from "@kleidi/modules/documents";
+import {
   NOTIFICATIONS_CONSUMER,
   sendDeadlineReminder,
   sendInvitationEmail,
@@ -17,9 +23,20 @@ export type Consumer = {
 const NOTIFIED = new Set(["firms.MemberInvited", "deadlines.ReminderDue"]);
 
 /** Which module reacts to which event. Every firm event also lands in the audit trail. */
-export function buildConsumers(deps: { db: Db; notifier: Notifier; appUrl: string }): Consumer[] {
+export function buildConsumers(deps: {
+  db: Db;
+  notifier: Notifier;
+  appUrl: string;
+  store: ObjectStore;
+  scanner: Scanner;
+}): Consumer[] {
   return [
     { name: AUDIT_CONSUMER, accepts: () => true, handle: (e) => recordAuditFromEvent(deps.db, e) },
+    {
+      name: SCANNER_CONSUMER,
+      accepts: (type) => type === "documents.VersionUploaded",
+      handle: (e) => scanUploadedVersion(deps.db, deps.store, deps.scanner, e),
+    },
     {
       name: NOTIFICATIONS_CONSUMER,
       accepts: (type) => NOTIFIED.has(type),
