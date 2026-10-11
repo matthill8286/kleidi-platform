@@ -7,4 +7,4 @@ export type DomainEvent<TType extends string = string, TPayload = Record<string,
 };
 
 /** A domain event after it has been stored in the outbox. */
-export type StoredEvent = DomainEvent & { id: string; occurredAt: string };
+export type StoredEvent = DomainEvent & { id: string; position: number; occurredAt: string };

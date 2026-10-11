@@ -1,4 +1,11 @@
-import { createFileRoute, Link, Outlet, redirect, useRouter } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Link,
+  Outlet,
+  redirect,
+  useLocation,
+  useRouter,
+} from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { Avatar, Icon, LanguageSwitch, Logo } from "../components/ui.tsx";
 import { getActiveFirm, setActiveFirm } from "../lib/api.ts";
@@ -24,6 +31,8 @@ function Shell() {
   const { t } = useTranslation();
   const router = useRouter();
   const { me, firm, queryClient } = Route.useRouteContext();
+  const { pathname } = useLocation();
+  const inCases = pathname === "/" || pathname.startsWith("/cases");
 
   async function signOut() {
     await authClient.signOut();
@@ -48,7 +57,7 @@ function Shell() {
         </Link>
         <div className="nav-label">{t("nav.workspace")}</div>
         <nav className="nav">
-          <Link to="/" activeOptions={{ exact: true }}>
+          <Link to="/" data-status={inCases ? "active" : undefined}>
             <Icon name="cases" />
             {t("nav.cases")}
           </Link>

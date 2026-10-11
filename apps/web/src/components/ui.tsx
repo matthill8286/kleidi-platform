@@ -17,6 +17,14 @@ const PATHS: Record<string, string> = {
   logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   check: '<path d="M20 6L9 17l-5-5"/>',
+  arrowRight: '<path d="M5 12h14M13 5l7 7-7 7"/>',
+  arrowLeft: '<path d="M19 12H5M11 19l-7-7 7-7"/>',
+  pause:
+    '<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>',
+  play: '<path d="M6 4l14 8-14 8V4z"/>',
+  x: '<path d="M18 6L6 18M6 6l12 12"/>',
+  search: '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
+  home: '<path d="M3 10l9-7 9 7v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V10z"/><path d="M9 22V12h6v10"/>',
 };
 
 export const Icon = ({ name }: { name: keyof typeof PATHS }) => (

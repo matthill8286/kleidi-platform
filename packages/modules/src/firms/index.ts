@@ -1,6 +1,7 @@
 export {
   acceptInvitation,
   createFirm,
+  getFirmJurisdiction,
   getMembership,
   inviteMember,
   listFirmIds,

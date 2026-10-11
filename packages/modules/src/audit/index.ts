@@ -1,6 +1,8 @@
+import { and, asc, eq } from "drizzle-orm";
 import { handleOnce, withFirm, type Db } from "@kleidi/db";
 import { auditEvents } from "@kleidi/db/schema/audit";
 import type { StoredEvent } from "@kleidi/kernel";
+import { findUsersByIds } from "../identity/index.ts";
 
 export const AUDIT_CONSUMER = "audit";
 
@@ -27,8 +29,32 @@ export async function recordAuditFromEvent(db: Db, event: StoredEvent): Promise<
         entityId: typeof entityId === "string" ? entityId : null,
         metadata: rest,
         eventId: event.id,
+        eventPosition: event.position,
         createdAt: new Date(event.occurredAt),
       });
     }),
   );
+}
+
+/** The audit trail for one entity, oldest first, with who did each thing. */
+export async function listForEntity(db: Db, firmId: string, entityType: string, entityId: string) {
+  return withFirm(db, firmId, async (tx) => {
+    const rows = await tx
+      .select({
+        id: auditEvents.id,
+        action: auditEvents.action,
+        actorUserId: auditEvents.actorUserId,
+        metadata: auditEvents.metadata,
+        createdAt: auditEvents.createdAt,
+      })
+      .from(auditEvents)
+      .where(and(eq(auditEvents.entityType, entityType), eq(auditEvents.entityId, entityId)))
+      .orderBy(asc(auditEvents.createdAt), asc(auditEvents.eventPosition));
+    const actorIds = [...new Set(rows.flatMap((r) => (r.actorUserId ? [r.actorUserId] : [])))];
+    const names = new Map((await findUsersByIds(tx, actorIds)).map((u) => [u.id, u.name]));
+    return rows.map((r) => ({
+      ...r,
+      actorName: r.actorUserId ? (names.get(r.actorUserId) ?? null) : null,
+    }));
+  });
 }

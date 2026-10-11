@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  bigserial,
   index,
   integer,
   jsonb,
@@ -17,6 +18,8 @@ export const outbox = pgTable(
   "outbox",
   {
     id: id(),
+    // Commit order within a transaction, where occurred_at ties.
+    position: bigserial("position", { mode: "number" }).notNull(),
     type: text("type").notNull(),
     firmId: uuid("firm_id"),
     actorUserId: uuid("actor_user_id"),
@@ -27,7 +30,7 @@ export const outbox = pgTable(
   },
   (t) => [
     index("outbox_unpublished")
-      .on(t.occurredAt)
+      .on(t.position)
       .where(sql`published_at is null`),
   ],
 );

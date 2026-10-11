@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "node --watch --env-file-if-exists=../../.env src/index.ts",
     "start": "node src/index.ts",
+    "dev:totp": "node scripts/dev-totp.ts",
     "typecheck": "tsc",
     "test": "vitest run"
   },

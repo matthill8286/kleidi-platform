@@ -5,7 +5,9 @@ export type ErrorCode =
   | "not_found"
   | "conflict"
   | "invalid"
-  | "expired";
+  | "expired"
+  | "precondition_required"
+  | "precondition_failed";
 
 const STATUS: Record<ErrorCode, number> = {
   unauthenticated: 401,
@@ -15,6 +17,8 @@ const STATUS: Record<ErrorCode, number> = {
   conflict: 409,
   invalid: 422,
   expired: 410,
+  precondition_required: 428,
+  precondition_failed: 412,
 };
 
 /** A failure the caller can act on. The API turns it into an RFC 9457 problem response. */

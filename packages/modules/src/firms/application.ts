@@ -1,5 +1,5 @@
 import { and, asc, eq, gt, isNull } from "drizzle-orm";
-import { publishEvents, type Db } from "@kleidi/db";
+import { publishEvents, type Db, type Tx } from "@kleidi/db";
 import { firmInvitations, firmMembers, firms } from "@kleidi/db/schema/firms";
 import { AppError, systemClock, type Clock } from "@kleidi/kernel";
 import { findUsersByIds } from "../identity/index.ts";
@@ -63,8 +63,23 @@ export async function listFirmIds(db: Db): Promise<string[]> {
   return rows.map((r) => r.id);
 }
 
+/** The country a firm practises in, which decides its case template. */
+export async function getFirmJurisdiction(db: Db | Tx, firmId: string): Promise<string> {
+  const [row] = await db
+    .select({ code: firms.jurisdictionCode })
+    .from(firms)
+    .where(eq(firms.id, firmId))
+    .limit(1);
+  if (!row) throw new AppError("not_found", "Firm not found");
+  return row.code;
+}
+
 /** The caller's role in a firm, or null when they are not a member. */
-export async function getMembership(db: Db, userId: string, firmId: string): Promise<Role | null> {
+export async function getMembership(
+  db: Db | Tx,
+  userId: string,
+  firmId: string,
+): Promise<Role | null> {
   const [row] = await db
     .select({ role: firmMembers.role })
     .from(firmMembers)

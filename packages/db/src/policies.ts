@@ -16,6 +16,7 @@ CREATE POLICY firm_isolation ON ${table} USING (${firmMatch}) WITH CHECK (${firm
   return `
 GRANT USAGE ON SCHEMA public TO ${role};
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO ${role};
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO ${role};
 GRANT SELECT ON jurisdictions, stage_templates, document_requirements TO ${role};
 REVOKE INSERT, UPDATE, DELETE ON jurisdictions, stage_templates, document_requirements FROM ${role};
 REVOKE UPDATE, DELETE ON audit_events FROM ${role};

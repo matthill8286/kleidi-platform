@@ -30,6 +30,8 @@ pnpm dev
 
 Open http://localhost:5180, create an account and set up an authenticator app. Invitation and reminder emails land in Mailpit at http://localhost:8025.
 
+To sign in as the local test user, put `DEV_LOGIN_EMAIL` and `DEV_LOGIN_PASSWORD` in `.env` and run `pnpm --filter @kleidi/api dev:totp` for the current authenticator code.
+
 The web app runs on http://localhost:5180 and the API on http://localhost:4100. Mailpit, which catches outgoing email, runs on http://localhost:8025.
 
 ## Checks
@@ -46,5 +48,7 @@ The database tests in `packages/db/test` prove row-level security: a firm sees o
 - **Two database roles:** `kleidi_admin` owns the schema and runs migrations. `kleidi_app` is what the API and worker use, and row-level security applies to it.
 - **Jurisdictions are data:** stages and document requirements live in `stage_templates` and `document_requirements`. A new country is new seed data, not new code.
 - **Events and the outbox:** commands publish domain events in the same transaction as their change. The worker relays the outbox to a pg-boss queue per consumer; consumers record each event they handle, so redelivery is harmless. The audit trail is built from these events.
+- **Cases:** `cases/domain.ts` is a pure state machine over the jurisdiction's stages, covered by property tests. References such as `CY-2026-007` come from a per-firm, per-year counter.
+- **Safe writes:** case writes need `If-Match: "v<version>"`, and a stale version gets 412. POST requests may send an `Idempotency-Key`; a repeat within 24 hours replays the first response, and the same key with a different body gets 422.
 - **Identity:** Better Auth with email and password and authenticator-app two-factor sign-in, mounted at `/api/auth`. The web app talks to the API through the Vite proxy, so cookies stay first-party.
 - **No build step for Node apps:** the API and worker run TypeScript directly with Node's type stripping, so imports use `.ts` extensions and only erasable syntax is allowed.

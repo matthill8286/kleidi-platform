@@ -27,7 +27,12 @@ export function client(app: FastifyInstance) {
   const jar = new Map<string, string>();
   let firmId: string | null = null;
 
-  async function call(method: "GET" | "POST", url: string, body?: unknown) {
+  async function call(
+    method: "GET" | "POST",
+    url: string,
+    body?: unknown,
+    extra: Record<string, string> = {},
+  ) {
     const res = await app.inject({
       method,
       url,
@@ -36,6 +41,7 @@ export function client(app: FastifyInstance) {
         ...(jar.size ? { cookie: [...jar].map(([k, v]) => `${k}=${v}`).join("; ") } : {}),
         ...(firmId ? { "x-kleidi-firm": firmId } : {}),
         ...(body === undefined ? {} : { "content-type": "application/json" }),
+        ...extra,
       },
       ...(body === undefined ? {} : { payload: JSON.stringify(body) }),
     });
@@ -49,8 +55,9 @@ export function client(app: FastifyInstance) {
   }
 
   return {
-    get: (url: string) => call("GET", url),
-    post: (url: string, body: unknown = {}) => call("POST", url, body),
+    get: (url: string, headers?: Record<string, string>) => call("GET", url, undefined, headers),
+    post: (url: string, body: unknown = {}, headers?: Record<string, string>) =>
+      call("POST", url, body, headers),
     useFirm: (id: string) => {
       firmId = id;
     },

@@ -17,6 +17,66 @@ export type InvitationPreview = {
   state: "pending" | "accepted" | "expired";
 };
 
+export type CaseStatus = "open" | "on_hold" | "completed" | "cancelled";
+export type PropertyType = "resale" | "offplan" | "land";
+export type PartyRole = "buyer" | "seller" | "developer" | "bank";
+export type Localised = Record<string, string>;
+
+export type CaseSummary = {
+  id: string;
+  reference: string;
+  propertyAddress: string | null;
+  propertyType: PropertyType | null;
+  currentStageKey: string;
+  status: CaseStatus;
+  buyers: string[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type Party = {
+  id: string;
+  role: PartyRole;
+  fullName: string;
+  email: string | null;
+  phone: string | null;
+};
+export type PartyInput = { role: PartyRole; fullName: string; email?: string; phone?: string };
+
+export type CaseDetail = Omit<CaseSummary, "buyers"> & {
+  jurisdictionCode: string;
+  plotOrRegNo: string | null;
+  developerName: string | null;
+  statusReason: string | null;
+  version: number;
+  assignedLawyer: { id: string; name: string } | null;
+  parties: Party[];
+  stages: { key: string; label: Localised }[];
+  history: { stageKey: string; enteredAt: string; completedAt: string | null }[];
+  closedAt: string | null;
+};
+
+export type Activity = {
+  id: string;
+  action: string;
+  actorName: string | null;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+}[];
+
+export type NewCase = {
+  propertyAddress: string;
+  plotOrRegNo?: string;
+  propertyType: PropertyType;
+  developerName?: string;
+  parties: PartyInput[];
+};
+
+export type Transition =
+  | { kind: "advance" }
+  | { kind: "resume" }
+  | { kind: "stepBack" | "hold" | "cancel"; reason: string };
+
 /** An RFC 9457 problem from the API, with its stable code. */
 export class ApiError extends Error {
   readonly status: number;
@@ -48,13 +108,19 @@ export function setActiveFirm(id: string | null) {
   }
 }
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+async function request<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+  extra: Record<string, string> = {},
+): Promise<T> {
   const res = await fetch(path, {
     method,
     credentials: "include",
     headers: {
       ...(body === undefined ? {} : { "content-type": "application/json" }),
       ...(activeFirm ? { "x-kleidi-firm": activeFirm } : {}),
+      ...extra,
     },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
@@ -64,6 +130,13 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   }
   return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
 }
+
+// Writes carry an Idempotency-Key so a retried click never opens a case twice,
+// and an If-Match version so one lawyer cannot silently overwrite another.
+const writeHeaders = (key: string, version?: number) => ({
+  "idempotency-key": key,
+  ...(version === undefined ? {} : { "if-match": `"v${version}"` }),
+});
 
 export const api = {
   me: () => request<Me>("GET", "/api/v1/me"),
@@ -79,4 +152,26 @@ export const api = {
       "POST",
       `/api/v1/invitations/${encodeURIComponent(token)}/accept`,
     ),
+  listCases: (params: { q?: string; status?: CaseStatus; cursor?: string }) => {
+    const search = new URLSearchParams(
+      Object.entries(params).filter((e): e is [string, string] => Boolean(e[1])),
+    );
+    return request<{ items: CaseSummary[]; nextCursor: string | null }>(
+      "GET",
+      `/api/v1/cases?${search}`,
+    );
+  },
+  openCase: (body: NewCase, key: string) =>
+    request<CaseDetail>("POST", "/api/v1/cases", body, writeHeaders(key)),
+  getCase: (id: string) => request<CaseDetail>("GET", `/api/v1/cases/${id}`),
+  caseActivity: (id: string) => request<Activity>("GET", `/api/v1/cases/${id}/activity`),
+  transition: (id: string, version: number, body: Transition, key: string) =>
+    request<CaseDetail>(
+      "POST",
+      `/api/v1/cases/${id}/transitions`,
+      body,
+      writeHeaders(key, version),
+    ),
+  addParty: (id: string, version: number, body: PartyInput, key: string) =>
+    request<CaseDetail>("POST", `/api/v1/cases/${id}/parties`, body, writeHeaders(key, version)),
 };

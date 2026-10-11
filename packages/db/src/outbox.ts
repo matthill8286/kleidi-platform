@@ -30,12 +30,13 @@ export async function relayOutbox(
       .select()
       .from(outbox)
       .where(isNull(outbox.publishedAt))
-      .orderBy(asc(outbox.occurredAt))
+      .orderBy(asc(outbox.position))
       .limit(limit)
       .for("update", { skipLocked: true });
     for (const row of rows) {
       await send({
         id: row.id,
+        position: row.position,
         type: row.type,
         firmId: row.firmId,
         actorUserId: row.actorUserId,

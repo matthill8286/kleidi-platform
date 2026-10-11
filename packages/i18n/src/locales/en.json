@@ -64,10 +64,91 @@
   "cases": {
     "title": "Cases",
     "empty": "No cases yet.",
-    "emptyLead": "Case tracking arrives in the next milestone. Invite your team in the meantime.",
+    "emptyLead": "Open your first case to start tracking a sale from reservation to title deed.",
+    "noMatches": "No cases match this search.",
     "reference": "Reference",
     "stage": "Stage",
-    "status": "Status"
+    "status": "Status",
+    "property": "Property",
+    "buyers": "Buyers",
+    "updated": "Updated",
+    "new": "New case",
+    "search": "Search by reference or address",
+    "all": "All",
+    "loadMore": "Load more",
+    "statuses": {
+      "open": "Open",
+      "on_hold": "On hold",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
+    "types": {
+      "resale": "Resale",
+      "offplan": "Off-plan",
+      "land": "Land"
+    },
+    "roles": {
+      "buyer": "Buyer",
+      "seller": "Seller",
+      "developer": "Developer",
+      "bank": "Bank"
+    },
+    "form": {
+      "title": "Open a case",
+      "lead": "The reference is assigned when you save.",
+      "propertySection": "Property",
+      "address": "Property address",
+      "plot": "Plot or registration number",
+      "type": "Property type",
+      "developer": "Developer",
+      "optional": "Optional",
+      "partiesSection": "Parties",
+      "partyRole": "Role",
+      "partyName": "Full name",
+      "partyEmail": "Email",
+      "partyPhone": "Phone",
+      "addParty": "Add another party",
+      "remove": "Remove",
+      "needBuyer": "Add at least one buyer.",
+      "submit": "Open case"
+    },
+    "detail": {
+      "back": "All cases",
+      "lawyer": "Lawyer",
+      "opened": "Opened {{date}}",
+      "progress": "Stage {{n}} of {{total}}",
+      "timeline": "Progress",
+      "parties": "Parties",
+      "activity": "Activity",
+      "noActivity": "Activity appears here a moment after each change.",
+      "entered": "Since {{date}}",
+      "done": "Done {{date}}",
+      "advance": "Move to {{stage}}",
+      "complete": "Complete case",
+      "stepBack": "Step back",
+      "hold": "Put on hold",
+      "resume": "Resume",
+      "cancel": "Cancel case",
+      "reasonFor": {
+        "stepBack": "Why is the case moving back?",
+        "hold": "Why is the case on hold?",
+        "cancel": "Why is the case cancelled?"
+      },
+      "reason": "Reason",
+      "confirm": "Confirm",
+      "stale": "Someone else changed this case. It has been reloaded, so check it and try again.",
+      "heldBecause": "On hold: {{reason}}",
+      "cancelledBecause": "Cancelled: {{reason}}",
+      "addParty": "Add party",
+      "save": "Save"
+    },
+    "events": {
+      "opened": "opened the case",
+      "stage": "moved the case to {{to}}",
+      "stageBack": "moved the case back to {{to}}",
+      "status": "marked the case {{to}}",
+      "party": "added {{name}} as {{role}}"
+    }
   },
   "team": {
     "title": "Team",

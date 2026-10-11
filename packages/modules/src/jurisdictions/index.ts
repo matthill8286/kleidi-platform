@@ -31,3 +31,12 @@ export async function stageExists(tx: Tx, code: string, stageKey: string): Promi
     .limit(1);
   return Boolean(row);
 }
+
+/** Stage keys and labels for one country, in order. */
+export async function listStages(tx: Tx, code: string) {
+  return tx
+    .select({ key: stageTemplates.key, label: stageTemplates.label })
+    .from(stageTemplates)
+    .where(eq(stageTemplates.jurisdictionCode, code))
+    .orderBy(asc(stageTemplates.sortOrder));
+}

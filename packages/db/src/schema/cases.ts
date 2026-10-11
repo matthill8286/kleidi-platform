@@ -3,6 +3,7 @@ import {
   integer,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -31,6 +32,8 @@ export const cases = pgTable(
     developerName: text("developer_name"),
     currentStageKey: text("current_stage_key").notNull(),
     status: caseStatus("status").notNull().default("open"),
+    // Why the case is on hold or cancelled.
+    statusReason: text("status_reason"),
     assignedLawyerId: uuid("assigned_lawyer_id").references(() => users.id),
     // Optimistic concurrency: updates must name the version they read.
     version: integer("version").notNull().default(1),
@@ -74,4 +77,15 @@ export const caseStages = pgTable(
     completedAt: timestamp("completed_at", { withTimezone: true }),
   },
   (t) => [index("case_stages_case").on(t.caseId)],
+);
+
+// Per-firm, per-year sequence behind references like CY-2026-007.
+export const caseCounters = pgTable(
+  "case_counters",
+  {
+    firmId: firmRef(),
+    year: integer("year").notNull(),
+    last: integer("last").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.firmId, t.year] })],
 );

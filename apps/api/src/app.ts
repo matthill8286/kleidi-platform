@@ -15,6 +15,8 @@ import type { Auth } from "@kleidi/modules/identity";
 import { registerAuthRoutes } from "./plugins/auth-routes.ts";
 import { createContext } from "./plugins/context.ts";
 import { registerErrorHandler } from "./plugins/errors.ts";
+import { createIdempotency } from "./plugins/idempotency.ts";
+import { caseRoutes } from "./routes/cases.ts";
 import { firmRoutes } from "./routes/firms.ts";
 import { healthRoutes } from "./routes/health.ts";
 import { invitationRoutes } from "./routes/invitations.ts";
@@ -40,7 +42,11 @@ export async function buildApp(deps: AppDeps) {
       directives: { defaultSrc: ["'self'"], frameAncestors: ["'none'"], objectSrc: ["'none'"] },
     },
   });
-  await app.register(cors, { origin: deps.webOrigin, credentials: true });
+  await app.register(cors, {
+    origin: deps.webOrigin,
+    credentials: true,
+    exposedHeaders: ["etag", "location", "idempotent-replayed"],
+  });
   await app.register(rateLimit, { max: 300, timeWindow: "1 minute" });
   await app.register(swagger, {
     openapi: { info: { title: "Kleidi API", version: "0.1.0" } },
@@ -55,6 +61,8 @@ export async function buildApp(deps: AppDeps) {
   await typed.register(meRoutes, { db: deps.db, ctx, prefix: "/api/v1" });
   await typed.register(firmRoutes, { db: deps.db, ctx, prefix: "/api/v1" });
   await typed.register(invitationRoutes, { db: deps.db, ctx, prefix: "/api/v1" });
+  const idempotent = createIdempotency(deps.db);
+  await typed.register(caseRoutes, { db: deps.db, ctx, idempotent, prefix: "/api/v1" });
   app.get("/openapi.json", { schema: { hide: true } }, () => app.swagger());
 
   // In production the API container also serves the built React app.
