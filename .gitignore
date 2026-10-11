@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.turbo/
+coverage/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+infra/opentofu/.terraform/
+infra/opentofu/*.tfstate*
+infra/opentofu/*.tfvars
+!infra/opentofu/example.tfvars
+apps/web/src/routeTree.gen.ts

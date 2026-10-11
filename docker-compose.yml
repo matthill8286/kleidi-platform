@@ -1,0 +1,36 @@
+# Local stand-ins: Postgres for Scaleway Managed PostgreSQL, SeaweedFS (S3 API) for Object Storage, Mailpit for Brevo.
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: kleidi_admin
+      POSTGRES_PASSWORD: kleidi_admin
+      POSTGRES_DB: kleidi
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infra/docker/postgres-init.sql:/docker-entrypoint-initdb.d/01-roles.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kleidi_admin -d kleidi"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  objects:
+    image: chrislusf/seaweedfs:latest
+    command: server -s3 -dir=/data -ip.bind=0.0.0.0
+    ports:
+      - "8333:8333"
+    volumes:
+      - objects-data:/data
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+volumes:
+  postgres-data:
+  objects-data:

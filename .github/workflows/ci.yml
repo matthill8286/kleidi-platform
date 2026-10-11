@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: kleidi_admin
+          POSTGRES_PASSWORD: kleidi_admin
+          POSTGRES_DB: kleidi
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U kleidi_admin -d kleidi"
+          --health-interval 2s --health-timeout 3s --health-retries 20
+    env:
+      DATABASE_URL: postgres://kleidi_app:kleidi_app@localhost:5432/kleidi
+      DATABASE_ADMIN_URL: postgres://kleidi_admin:kleidi_admin@localhost:5432/kleidi
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Create the app role
+        run: psql "$DATABASE_ADMIN_URL" -f infra/docker/postgres-init.sql
+      - run: pnpm db:migrate
+      - run: pnpm db:seed
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm boundaries
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
