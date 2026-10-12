@@ -29,7 +29,7 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.SCW_ACCESS_KEY }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.SCW_SECRET_KEY }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Log in to the Scaleway registry
         run: echo "$SCW_SECRET_KEY" | docker login rg.fr-par.scw.cloud -u nologin --password-stdin
@@ -41,7 +41,7 @@ jobs:
             docker push "$REGISTRY/$target:$TAG"
           done
 
-      - uses: opentofu/setup-opentofu@v1
+      - uses: opentofu/setup-opentofu@v2
         with:
           tofu_version: 1.10.6
 
