@@ -19,7 +19,8 @@
     "soon": "Soon",
     "calendar": "Calendar",
     "clients": "Clients",
-    "settings": "Settings"
+    "settings": "Settings",
+    "deadlines": "Deadlines"
   },
   "auth": {
     "signInTitle": "Welcome back",
@@ -132,7 +133,8 @@
       "reasonFor": {
         "stepBack": "Why is the case moving back?",
         "hold": "Why is the case on hold?",
-        "cancel": "Why is the case cancelled?"
+        "cancel": "Why is the case cancelled?",
+        "advance": "Why move on before these are done?"
       },
       "reason": "Reason",
       "confirm": "Confirm",
@@ -140,7 +142,10 @@
       "heldBecause": "On hold: {{reason}}",
       "cancelledBecause": "Cancelled: {{reason}}",
       "addParty": "Add party",
-      "save": "Save"
+      "save": "Save",
+      "gapsBehind": "{{count}} checklist items were left unfinished in earlier stages. They are marked below.",
+      "notDone": "{{count}} checklist items for this stage are not done:",
+      "moveAnyway": "Move on anyway"
     },
     "events": {
       "opened": "opened the case",
@@ -152,7 +157,14 @@
       "released": "{{title}} passed the virus scan",
       "quarantined": "{{title}} failed the virus scan",
       "updated": "updated {{title}}",
-      "flagged": "{{title}}: {{state}}"
+      "flagged": "{{title}}: {{state}}",
+      "deadlineAdded": "added the deadline {{title}}",
+      "deadlineChanged": "changed the deadline {{title}}",
+      "deadlineCompleted": "completed the deadline {{title}}",
+      "deadlineReopened": "reopened the deadline {{title}}",
+      "deadlineRemoved": "removed the deadline {{title}}",
+      "reminderSent": "Reminder sent for {{title}}",
+      "stageSkipped": "moved the case to {{to}} with {{count}} checklist items unfinished"
     },
     "docs": {
       "title": "Documents",
@@ -184,7 +196,8 @@
       "docTitle": "Document title",
       "noOther": "No other documents yet.",
       "history": "{{count}} earlier versions",
-      "tooBig": "Files can be at most 25 MB."
+      "tooBig": "Files can be at most 25 MB.",
+      "missingCount": "{{count}} not done"
     }
   },
   "team": {
@@ -275,6 +288,71 @@
       "OTP_HAS_EXPIRED": "That code has expired. Enter the new one from your app.",
       "TOO_MANY_ATTEMPTS": "Too many attempts. Wait a few minutes and try again.",
       "TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE": "Too many attempts. Request a new code."
+    },
+    "deadlineTitle": "Give the deadline a title.",
+    "deadlinePast": "The deadline must be in the future.",
+    "deadlineNotFound": "This deadline could not be found.",
+    "ownerNotInFirm": "The owner is not in this firm.",
+    "phoneInvalid": "Enter the mobile number with its country code, such as +357 99 123456.",
+    "phoneNeeded": "Add a mobile number to get SMS reminders.",
+    "userNotFound": "This user could not be found.",
+    "stageIncomplete": "{{count}} checklist items for this stage are not ready. Give a reason to move on anyway."
+  },
+  "deadlines": {
+    "heading": "Deadlines",
+    "pageTitle": "Deadlines",
+    "lead": "Everything due across your cases, soonest first.",
+    "add": "Add deadline",
+    "none": "No deadlines on this case yet.",
+    "title": "What is due",
+    "titleHint": "Pay stamp duty",
+    "date": "Date",
+    "time": "Time",
+    "owner": "Owner",
+    "remind": "Remind the owner",
+    "notes": "Notes",
+    "markDone": "Mark as done",
+    "reopen": "Reopen",
+    "remove": "Remove deadline",
+    "mine": "Mine",
+    "everyone": "Everyone",
+    "showDone": "Show finished",
+    "emptyTitle": "Nothing due.",
+    "emptyLead": "Deadlines you add on a case appear here, with reminders before each one.",
+    "before": {
+      "168": "1 week before",
+      "72": "3 days before",
+      "24": "1 day before",
+      "2": "2 hours before"
+    },
+    "urgency": {
+      "overdue": "Overdue",
+      "today": "Today",
+      "week": "This week",
+      "later": "Later",
+      "done": "Done"
+    },
+    "groups": {
+      "overdue": "Overdue",
+      "today": "Due today",
+      "week": "Due in the next 7 days",
+      "later": "Later",
+      "done": "Finished"
     }
+  },
+  "settings": {
+    "title": "Settings",
+    "lead": "How Kleidi reaches you.",
+    "notifications": "Notifications",
+    "language": "Language",
+    "languageHint": "Emails and texts arrive in this language.",
+    "phone": "Mobile number",
+    "phoneHint": "With the country code. Used only for deadline reminders.",
+    "sms": "Text me on the last day before a deadline",
+    "save": "Save",
+    "saved": "Saved.",
+    "security": "Security",
+    "twoFactorOn": "Two-factor sign-in is on",
+    "securityLead": "You sign in with your password and an authenticator app."
   }
 }

@@ -3,6 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { CaseDocumentsCard } from "../../../components/case-documents.tsx";
+import { CaseDeadlinesCard } from "../../../components/deadlines.tsx";
 import { Avatar, ErrorAlert, Field, Icon } from "../../../components/ui.tsx";
 import {
   api,
@@ -18,7 +19,7 @@ import { useErrorText } from "../../../lib/errors.ts";
 
 export const Route = createFileRoute("/_app/cases/$caseId")({ component: CasePage });
 
-type ReasonKind = "stepBack" | "hold" | "cancel";
+type ReasonKind = "advance" | "stepBack" | "hold" | "cancel";
 const ROLES: PartyRole[] = ["buyer", "seller", "developer", "bank"];
 
 function CasePage() {
@@ -28,6 +29,11 @@ function CasePage() {
   const queryClient = useQueryClient();
   const errorText = useErrorText();
   const detail = useQuery({ queryKey: ["case", caseId], queryFn: () => api.getCase(caseId) });
+  // Shared with the documents card, so the checklist and the stage gate stay in step.
+  const docs = useQuery({
+    queryKey: ["case", caseId, "documents"],
+    queryFn: () => api.caseDocuments(caseId),
+  });
   // The audit trail is written by the worker a moment after each change, so keep it fresh.
   const activity = useQuery({
     queryKey: ["case", caseId, "activity"],
@@ -49,6 +55,8 @@ function CasePage() {
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ["cases", firm.id] }),
           queryClient.invalidateQueries({ queryKey: ["case", caseId, "activity"] }),
+          // The stage decides which checklist items are current, so reload them too.
+          queryClient.invalidateQueries({ queryKey: ["case", caseId, "documents"] }),
         ]);
         return fresh;
       },
@@ -76,6 +84,15 @@ function CasePage() {
     return l?.[lang] ?? l?.en ?? key;
   };
   const index = c.stages.findIndex((s) => s.key === c.currentStageKey);
+  const pick = (l: Record<string, string>) => l[lang] ?? l.en ?? "";
+  const docStages = docs.data?.stages ?? [];
+  const gapsBehind = docs.data?.summary.gapsBehind ?? 0;
+  const gapAt = new Map(
+    docStages.filter((s) => s.position === "past").map((s) => [s.key, s.outstanding]),
+  );
+  const outstanding = (docStages.find((s) => s.position === "current")?.items ?? [])
+    .filter((i) => i.state !== "ready" && i.state !== "expiring")
+    .map((i) => pick(i.label));
 
   return (
     <div className="page">
@@ -107,6 +124,9 @@ function CasePage() {
       </div>
 
       {stale && <div className="alert warn">{t("cases.detail.stale")}</div>}
+      {gapsBehind > 0 && c.status !== "cancelled" && (
+        <div className="alert warn">{t("cases.detail.gapsBehind", { count: gapsBehind })}</div>
+      )}
       {c.status === "on_hold" && c.statusReason && (
         <div className="alert warn">
           {t("cases.detail.heldBecause", { reason: c.statusReason })}
@@ -120,7 +140,7 @@ function CasePage() {
 
       <div className="case-grid">
         <div style={{ display: "grid", gap: 18, alignContent: "start" }}>
-          <Actions c={c} label={label} onWrite={onWrite} />
+          <Actions c={c} label={label} onWrite={onWrite} outstanding={outstanding} />
           <CaseDocumentsCard caseId={c.id} closed={c.status === "cancelled"} />
           <section className="card">
             <div className="card-head">
@@ -132,9 +152,17 @@ function CasePage() {
                 const last = visits.at(-1);
                 const state =
                   c.status === "completed" || i < index ? "done" : i === index ? "current" : "todo";
+                const gap = state === "done" && (gapAt.get(s.key) ?? 0) > 0;
                 return (
-                  <li key={s.key} className={state}>
-                    <span className="dot">{state === "done" ? <Icon name="check" /> : i + 1}</span>
+                  <li key={s.key} className={`${state} ${gap ? "gap" : ""}`}>
+                    <span
+                      className="dot"
+                      title={
+                        gap ? t("cases.docs.missingCount", { count: gapAt.get(s.key) }) : undefined
+                      }
+                    >
+                      {gap ? "!" : state === "done" ? <Icon name="check" /> : i + 1}
+                    </span>
                     <div>
                       <b>{label(s.key)}</b>
                       {last && (
@@ -153,6 +181,10 @@ function CasePage() {
           </section>
         </div>
         <div style={{ display: "grid", gap: 18, alignContent: "start" }}>
+          <CaseDeadlinesCard
+            caseId={c.id}
+            closed={c.status === "completed" || c.status === "cancelled"}
+          />
           <Parties c={c} onWrite={onWrite} />
           <ActivityCard
             jurisdiction={c.jurisdictionCode}
@@ -170,10 +202,12 @@ function Actions({
   c,
   label,
   onWrite,
+  outstanding,
 }: {
   c: CaseDetail;
   label: (key: string) => string;
   onWrite: (p: Promise<CaseDetail>) => Promise<CaseDetail>;
+  outstanding: string[];
 }) {
   const { t } = useTranslation();
   const [asking, setAsking] = useState<ReasonKind | null>(null);
@@ -193,7 +227,8 @@ function Actions({
   function submitReason(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const reason = String(new FormData(e.currentTarget).get("reason") ?? "");
-    if (asking) move.mutate({ kind: asking, reason });
+    if (asking === "advance") move.mutate({ kind: "advance", override: reason });
+    else if (asking) move.mutate({ kind: asking, reason });
   }
 
   return (
@@ -203,7 +238,10 @@ function Actions({
           <button
             className="btn accent"
             disabled={move.isPending}
-            onClick={() => move.mutate({ kind: "advance" })}
+            // An unfinished checklist needs a reason before the case moves on.
+            onClick={() =>
+              outstanding.length > 0 ? setAsking("advance") : move.mutate({ kind: "advance" })
+            }
           >
             {isLast ? <Icon name="check" /> : <Icon name="arrowRight" />}
             {isLast
@@ -241,6 +279,16 @@ function Actions({
       </div>
       {asking && (
         <form className="reason" onSubmit={submitReason}>
+          {asking === "advance" && (
+            <div className="alert warn" style={{ margin: 0 }}>
+              <b>{t("cases.detail.notDone", { count: outstanding.length })}</b>
+              <ul className="plain-list">
+                {outstanding.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          )}
           <Field label={t(`cases.detail.reasonFor.${asking}`)}>
             <input name="reason" required minLength={3} maxLength={500} autoFocus />
           </Field>
@@ -252,7 +300,7 @@ function Actions({
               className={`btn ${asking === "cancel" ? "danger-fill" : "primary"}`}
               disabled={move.isPending}
             >
-              {t("cases.detail.confirm")}
+              {asking === "advance" ? t("cases.detail.moveAnyway") : t("cases.detail.confirm")}
             </button>
           </div>
         </form>
@@ -373,16 +421,31 @@ function ActivityCard({
     const m = a.metadata as Record<string, string | null>;
     const title = documentTitle(m.requirementKey, m.title ?? "");
     switch (a.action) {
-      case "cases.StageChanged":
-        return t(m.direction === "back" ? "cases.events.stageBack" : "cases.events.stage", {
-          to: label(m.to ?? ""),
-        });
+      case "cases.StageChanged": {
+        const skipped = Array.isArray(a.metadata.skipped) ? a.metadata.skipped.length : 0;
+        if (m.direction === "back") return t("cases.events.stageBack", { to: label(m.to ?? "") });
+        return skipped
+          ? t("cases.events.stageSkipped", { to: label(m.to ?? ""), count: skipped })
+          : t("cases.events.stage", { to: label(m.to ?? "") });
+      }
       case "cases.StatusChanged":
         return t("cases.events.status", { to: t(`cases.statuses.${m.to}`) });
       case "cases.PartyAdded":
         return t("cases.events.party", { name: m.fullName, role: t(`cases.roles.${m.role}`) });
       case "cases.CaseOpened":
         return t("cases.events.opened");
+      case "deadlines.DeadlineAdded":
+        return t("cases.events.deadlineAdded", { title: m.title });
+      case "deadlines.DeadlineChanged":
+        return t("cases.events.deadlineChanged", { title: m.title });
+      case "deadlines.DeadlineCompleted":
+        return t("cases.events.deadlineCompleted", { title: m.title });
+      case "deadlines.DeadlineReopened":
+        return t("cases.events.deadlineReopened", { title: m.title });
+      case "deadlines.DeadlineRemoved":
+        return t("cases.events.deadlineRemoved", { title: m.title });
+      case "deadlines.ReminderDue":
+        return t("cases.events.reminderSent", { title: m.title });
       case "documents.VersionUploaded":
         return t("cases.events.uploaded", { title, version: m.version });
       case "documents.VersionReleased":

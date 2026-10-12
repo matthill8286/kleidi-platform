@@ -1,14 +1,71 @@
-import { inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import type { Db, Tx } from "@kleidi/db";
 import { users } from "@kleidi/db/schema/identity";
+import { AppError } from "@kleidi/kernel";
 
-export type UserSummary = { id: string; name: string; email: string; locale: string };
+export const LOCALES = ["en", "el", "ru"] as const;
+export type UserLocale = (typeof LOCALES)[number];
+
+export type UserSummary = {
+  id: string;
+  name: string;
+  email: string;
+  locale: string;
+  phone: string | null;
+  smsReminders: boolean;
+};
+
+const summary = {
+  id: users.id,
+  name: users.name,
+  email: users.email,
+  locale: users.locale,
+  phone: users.phone,
+  smsReminders: users.smsReminders,
+};
 
 /** Public lookup for other modules; they never read the users table directly. */
 export async function findUsersByIds(db: Db | Tx, ids: string[]): Promise<UserSummary[]> {
   if (ids.length === 0) return [];
-  return db
-    .select({ id: users.id, name: users.name, email: users.email, locale: users.locale })
-    .from(users)
-    .where(inArray(users.id, ids));
+  return db.select(summary).from(users).where(inArray(users.id, ids));
+}
+
+/** "+357 99 123456" -> "+35799123456". Null when it is not an international mobile number. */
+export function normalisePhone(raw: string): string | null {
+  const phone = raw.replace(/[\s().-]/g, "");
+  return /^\+[1-9]\d{7,14}$/.test(phone) ? phone : null;
+}
+
+export async function updateProfile(
+  db: Db,
+  userId: string,
+  input: {
+    locale?: UserLocale | undefined;
+    phone?: string | null | undefined;
+    smsReminders?: boolean | undefined;
+  },
+): Promise<UserSummary> {
+  const [current] = await findUsersByIds(db, [userId]);
+  if (!current) throw new AppError("not_found", "User not found", "userNotFound");
+  let phone = current.phone;
+  if (input.phone !== undefined) {
+    phone = input.phone === null || input.phone.trim() === "" ? null : normalisePhone(input.phone);
+    if (input.phone && !phone) {
+      throw new AppError(
+        "invalid",
+        "Enter the mobile number with its country code, such as +357 99 123456",
+        "phoneInvalid",
+      );
+    }
+  }
+  const smsReminders = input.smsReminders ?? current.smsReminders;
+  if (smsReminders && !phone) {
+    throw new AppError("invalid", "Add a mobile number to get SMS reminders", "phoneNeeded");
+  }
+  const [updated] = await db
+    .update(users)
+    .set({ locale: input.locale ?? current.locale, phone, smsReminders, updatedAt: new Date() })
+    .where(eq(users.id, userId))
+    .returning(summary);
+  return updated!;
 }

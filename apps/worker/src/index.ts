@@ -7,7 +7,12 @@ import {
   createS3Store,
   flagExpiringDocuments,
 } from "@kleidi/modules/documents";
-import { createSmtpNotifier } from "@kleidi/modules/notifications";
+import {
+  createBrevoNotifier,
+  createSmtpNotifier,
+  sendDailyDigests,
+  type Notifier,
+} from "@kleidi/modules/notifications";
 import { buildConsumers, queueFor } from "./consumers.ts";
 import { relayToConsumers } from "./relay.ts";
 
@@ -23,7 +28,17 @@ const env = {
 if (!env.databaseUrl) throw new Error("DATABASE_URL is not set");
 
 const { db, close } = createDb(env.databaseUrl, { max: 5 });
-const notifier = createSmtpNotifier({ host: env.smtpHost, port: env.smtpPort, from: env.mailFrom });
+// Brevo when a key is set (staging and production); otherwise everything lands in Mailpit.
+const notifier: Notifier = process.env.BREVO_API_KEY
+  ? createBrevoNotifier({
+      apiKey: process.env.BREVO_API_KEY,
+      sender: {
+        name: process.env.BREVO_SENDER_NAME ?? "Kleidi",
+        email: process.env.BREVO_SENDER_EMAIL ?? "no-reply@kleidi.cy",
+      },
+      smsSender: process.env.BREVO_SMS_SENDER ?? "Kleidi",
+    })
+  : createSmtpNotifier({ host: env.smtpHost, port: env.smtpPort, from: env.mailFrom });
 const store = createS3Store({
   endpoint: process.env.S3_ENDPOINT ?? "http://localhost:8333",
   publicEndpoint: process.env.S3_ENDPOINT ?? "http://localhost:8333",
@@ -55,6 +70,11 @@ for (const consumer of consumers) {
 const scheduled = [
   { name: "deadline-reminders", cron: "*/15 * * * *", run: () => announceDueReminders(db) },
   { name: "document-expiry", cron: "0 6 * * *", run: () => flagExpiringDocuments(db) },
+  {
+    name: "daily-digest",
+    cron: "0 7 * * *",
+    run: () => sendDailyDigests(db, notifier, env.appUrl),
+  },
 ];
 for (const job of scheduled) {
   await boss.createQueue(job.name, { retryLimit: 5, retryBackoff: true });

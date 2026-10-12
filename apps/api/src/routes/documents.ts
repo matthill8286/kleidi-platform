@@ -56,6 +56,7 @@ const CaseDocuments = z.object({
       key: z.string(),
       label: Localised,
       position: z.enum(["past", "current", "future"]),
+      outstanding: z.number(),
       items: z.array(
         z.object({
           requirementKey: z.string(),
@@ -69,7 +70,12 @@ const CaseDocuments = z.object({
     }),
   ),
   other: z.array(DocumentView),
-  summary: z.object({ total: z.number(), ready: z.number(), attention: z.number() }),
+  summary: z.object({
+    total: z.number(),
+    ready: z.number(),
+    attention: z.number(),
+    gapsBehind: z.number(),
+  }),
 });
 
 const UploadRequest = z

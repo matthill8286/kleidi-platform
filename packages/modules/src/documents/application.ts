@@ -2,7 +2,7 @@ import { and, desc, eq, inArray, isNotNull } from "drizzle-orm";
 import { handleOnce, publishEvents, withFirm, type Db, type Tx } from "@kleidi/db";
 import { documents, documentVersions } from "@kleidi/db/schema/documents";
 import { AppError, systemClock, type Clock, type StoredEvent } from "@kleidi/kernel";
-import { findCase } from "../cases/index.ts";
+import { findCase, listActiveCases } from "../cases/index.ts";
 import type { Actor, FirmContext } from "../firms/index.ts";
 import { listFirmIds } from "../firms/index.ts";
 import { findUsersByIds } from "../identity/index.ts";
@@ -10,6 +10,7 @@ import { getTemplate } from "../jurisdictions/index.ts";
 import {
   defaultExpiry,
   itemState,
+  isDone,
   needsAttention,
   quarantineKey,
   releasedKey,
@@ -445,10 +446,12 @@ export async function listCaseDocuments(
           : i === stageIndex
             ? ("current" as const)
             : ("future" as const),
+      outstanding: items.filter((item) => !isDone(item.state)).length,
       items: sortChecklist(items),
     };
   });
   const all = stages.flatMap((s) => s.items);
+  const behind = stages.filter((s) => s.position === "past").flatMap((s) => s.items);
   return {
     stages,
     other: docs.filter((d) => !d.requirementKey).map(view),
@@ -457,6 +460,8 @@ export async function listCaseDocuments(
       ready: all.filter((i) => i.state === "ready" || i.state === "expiring").length,
       attention: all.filter((i) => i.document && needsAttention(i.state) && i.state !== "missing")
         .length,
+      // Unfinished items in stages the case has already passed.
+      gapsBehind: behind.filter((i) => !isDone(i.state)).length,
     },
   };
 }
@@ -506,4 +511,69 @@ export async function flagExpiringDocuments(db: Db, clock: Clock = systemClock) 
     if (counts.expiring || counts.expired) summary.push({ firmId, ...counts });
   }
   return summary;
+}
+
+/** Documents a lawyer should look at: expiring, expired, or whose latest file is quarantined. */
+export async function listAttentionDocuments(db: Db, firmId: string) {
+  return withFirm(db, firmId, async (tx) => {
+    const flagged = await tx
+      .select({
+        caseId: documents.caseId,
+        title: documents.title,
+        requirementKey: documents.requirementKey,
+        expiresOn: documents.expiresOn,
+        state: documents.expiryFlag,
+      })
+      .from(documents)
+      .where(isNotNull(documents.expiryFlag));
+    const infected = await tx
+      .select({
+        caseId: documents.caseId,
+        title: documents.title,
+        requirementKey: documents.requirementKey,
+        expiresOn: documents.expiresOn,
+      })
+      .from(documentVersions)
+      .innerJoin(documents, eq(documents.id, documentVersions.documentId))
+      .where(
+        and(
+          eq(documentVersions.scanStatus, "infected"),
+          eq(documentVersions.version, documents.latestVersion),
+        ),
+      );
+    return [
+      ...flagged.map((d) => ({ ...d, state: d.state as "expiring" | "expired" })),
+      ...infected.map((d) => ({ ...d, state: "infected" as const })),
+    ];
+  });
+}
+
+/** Requirement keys in the case's current stage that are not done yet. */
+export async function outstandingForCurrentStage(db: Db, firmId: string, caseId: string) {
+  const { stages } = await listCaseDocuments(db, firmId, caseId);
+  const current = stages.find((s) => s.position === "current");
+  return (current?.items ?? []).filter((i) => !isDone(i.state)).map((i) => i.requirementKey);
+}
+
+/** Live cases that moved past stages with unfinished checklist items, for the daily digest. */
+export async function listStageGaps(db: Db, firmId: string) {
+  const active = await withFirm(db, firmId, (tx) => listActiveCases(tx));
+  const gaps: {
+    caseId: string;
+    reference: string;
+    assignedLawyerId: string | null;
+    count: number;
+  }[] = [];
+  for (const c of active) {
+    const { summary } = await listCaseDocuments(db, firmId, c.id);
+    if (summary.gapsBehind > 0) {
+      gaps.push({
+        caseId: c.id,
+        reference: c.reference,
+        assignedLawyerId: c.assignedLawyerId,
+        count: summary.gapsBehind,
+      });
+    }
+  }
+  return gaps;
 }

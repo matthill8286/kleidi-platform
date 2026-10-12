@@ -10,6 +10,7 @@ import {
 import {
   NOTIFICATIONS_CONSUMER,
   sendDeadlineReminder,
+  sendExpiryAlert,
   sendInvitationEmail,
   type Notifier,
 } from "@kleidi/modules/notifications";
@@ -20,7 +21,12 @@ export type Consumer = {
   handle: (event: StoredEvent) => Promise<unknown>;
 };
 
-const NOTIFIED = new Set(["firms.MemberInvited", "deadlines.ReminderDue"]);
+const SENDERS = {
+  "firms.MemberInvited": sendInvitationEmail,
+  "deadlines.ReminderDue": sendDeadlineReminder,
+  "documents.ExpiryFlagged": sendExpiryAlert,
+} as const;
+const notified = (type: string): type is keyof typeof SENDERS => type in SENDERS;
 
 /** Which module reacts to which event. Every firm event also lands in the audit trail. */
 export function buildConsumers(deps: {
@@ -39,11 +45,11 @@ export function buildConsumers(deps: {
     },
     {
       name: NOTIFICATIONS_CONSUMER,
-      accepts: (type) => NOTIFIED.has(type),
+      accepts: notified,
       handle: (e) =>
-        e.type === "firms.MemberInvited"
-          ? sendInvitationEmail(deps.db, deps.notifier, e, deps.appUrl)
-          : sendDeadlineReminder(deps.db, deps.notifier, e, deps.appUrl),
+        notified(e.type)
+          ? SENDERS[e.type](deps.db, deps.notifier, e, deps.appUrl)
+          : Promise.resolve(false),
     },
   ];
 }

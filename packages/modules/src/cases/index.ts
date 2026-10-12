@@ -1,6 +1,8 @@
 export {
   addParty,
   findCase,
+  findCasesByIds,
+  listActiveCases,
   getCase,
   listCases,
   openCase,

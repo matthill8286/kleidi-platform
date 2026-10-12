@@ -55,10 +55,19 @@ describe.skipIf(!process.env.DATABASE_URL)("cases", () => {
     expect(opened.headers.etag).toBe('"v1"');
 
     let etag = opened.headers.etag as string;
-    for (let i = 1; i < created.stages.length; i++) {
+    const url = `/api/v1/cases/${created.id}/transitions`;
+    // Reservation has no checklist, so the first move needs no reason.
+    expect((await c.post(url, { kind: "advance" }, { "if-match": etag })).statusCode).toBe(200);
+    etag = '"v2"';
+    // Due diligence has four items and none are uploaded, so moving on is held back.
+    const held = await c.post(url, { kind: "advance" }, { "if-match": etag });
+    expect(held.statusCode).toBe(409);
+    expect(held.json()).toMatchObject({ messageKey: "stageIncomplete", params: { count: 4 } });
+
+    for (let i = 2; i < created.stages.length; i++) {
       const moved = await c.post(
-        `/api/v1/cases/${created.id}/transitions`,
-        { kind: "advance" },
+        url,
+        { kind: "advance", override: "Walking the whole journey in a test" },
         { "if-match": etag },
       );
       expect(moved.statusCode).toBe(200);
@@ -79,7 +88,7 @@ describe.skipIf(!process.env.DATABASE_URL)("cases", () => {
     expect(second.json().reference).toMatch(/^CY-\d{4}-002$/);
 
     // The outbox carries every change to the audit trail. Another relay may be running, so poll.
-    let activity: { action: string; actorName: string }[] = [];
+    let activity: { action: string; actorName: string; metadata: Record<string, unknown> }[] = [];
     for (let attempt = 0; attempt < 20 && activity.length < 9; attempt++) {
       await relayOutbox(db, async (event) => void (await recordAuditFromEvent(db, event)));
       activity = (await c.get(`/api/v1/cases/${created.id}/activity`)).json();
@@ -91,6 +100,12 @@ describe.skipIf(!process.env.DATABASE_URL)("cases", () => {
       "cases.StatusChanged",
     ]);
     expect(activity[0]!.actorName).toBe("Stage Walker");
+    // Moving on anyway leaves the skipped items and the reason in the audit trail.
+    expect(activity[2]!.metadata).toMatchObject({
+      to: "contract_signed",
+      reason: "Walking the whole journey in a test",
+      skipped: expect.arrayContaining(["title_deed", "planning_zone"]),
+    });
   });
 
   it("needs the current version to change a case", async () => {

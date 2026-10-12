@@ -29,7 +29,7 @@ export function client(app: FastifyInstance) {
   let firmId: string | null = null;
 
   async function call(
-    method: "GET" | "POST" | "PATCH",
+    method: "GET" | "POST" | "PATCH" | "DELETE",
     url: string,
     body?: unknown,
     extra: Record<string, string> = {},
@@ -60,6 +60,7 @@ export function client(app: FastifyInstance) {
     post: (url: string, body: unknown = {}, headers?: Record<string, string>) =>
       call("POST", url, body, headers),
     patch: (url: string, body: unknown = {}) => call("PATCH", url, body),
+    delete: (url: string) => call("DELETE", url),
     useFirm: (id: string) => {
       firmId = id;
     },

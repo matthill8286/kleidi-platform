@@ -1,7 +1,10 @@
 import nodemailer from "nodemailer";
-import type { Notifier } from "./notifier.ts";
-import { render } from "./templates.ts";
+import { renderMessage, type Notifier } from "./notifier.ts";
 
+/**
+ * Local stand-in for Brevo. Email goes to Mailpit as is; an SMS arrives in Mailpit as an
+ * email to sms+<number>@kleidi.local, so developers can read both in one place.
+ */
 export function createSmtpNotifier(options: {
   host: string;
   port: number;
@@ -14,9 +17,14 @@ export function createSmtpNotifier(options: {
   });
   return {
     async send(message) {
-      if (message.channel !== "email") throw new Error("The SMTP notifier only sends email");
-      const { subject, text } = render(message.template, message.locale, message.data);
-      const info = await transport.sendMail({ from: options.from, to: message.to, subject, text });
+      const { subject, text } = renderMessage(message);
+      const sms = message.channel === "sms";
+      const info = await transport.sendMail({
+        from: options.from,
+        to: sms ? `sms+${message.to.replace(/\D/g, "")}@kleidi.local` : message.to,
+        subject: sms ? `SMS to ${message.to}` : subject,
+        text,
+      });
       return { providerId: info.messageId };
     },
   };

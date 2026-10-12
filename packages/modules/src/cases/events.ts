@@ -10,7 +10,14 @@ export type CaseOpened = DomainEvent<
 
 export type CaseStageChanged = DomainEvent<
   "cases.StageChanged",
-  CaseEntity & { from: string; to: string; direction: "forward" | "back"; reason: string | null }
+  CaseEntity & {
+    from: string;
+    to: string;
+    direction: "forward" | "back";
+    reason: string | null;
+    // Checklist items left unfinished when a lawyer moved on anyway.
+    skipped: string[];
+  }
 >;
 
 export type CaseStatusChanged = DomainEvent<

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, ilike, isNull, lt, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, isNull, lt, or, sql, type SQL } from "drizzle-orm";
 import { publishEvents, withFirm, type Db, type Tx } from "@kleidi/db";
 import { caseCounters, caseParties, cases, caseStages } from "@kleidi/db/schema/cases";
 import { AppError, systemClock, type Clock, type DomainEvent } from "@kleidi/kernel";
@@ -13,6 +13,7 @@ import { listStages } from "../jurisdictions/index.ts";
 import {
   decide,
   formatReference,
+  gateAdvance,
   type CaseStatus,
   type Command,
   type PropertyType,
@@ -179,11 +180,16 @@ export async function transitionCase(
     caseId: string;
     expectedVersion: number;
     command: Command;
+    // The current stage's unfinished checklist items, and a reason to move on regardless.
+    checklist?: { outstanding: string[]; overrideReason?: string | undefined } | undefined;
   },
   clock: Clock = systemClock,
 ) {
   return withFirm(db, input.firm.firmId, async (tx) => {
     const current = await loadForChange(tx, input.caseId, input.expectedVersion);
+    const skipped = input.command.kind === "advance" ? (input.checklist?.outstanding ?? []) : [];
+    const gate = gateAdvance(skipped, input.checklist?.overrideReason?.trim());
+    if (gate) throw AppError.from("conflict", gate);
     const stages = (await listStages(tx, current.jurisdictionCode)).map((s) => s.key);
     const decision = decide(
       stages,
@@ -228,7 +234,8 @@ export async function transitionCase(
           from: current.currentStageKey,
           to: next.stageKey,
           direction: back ? "back" : "forward",
-          reason: back ? reason : null,
+          reason: back ? reason : skipped.length ? input.checklist!.overrideReason!.trim() : null,
+          skipped,
         },
       };
       events.push(changed);
@@ -419,4 +426,33 @@ export async function findCase(tx: Tx, caseId: string) {
     .where(eq(cases.id, caseId))
     .limit(1);
   return row ?? null;
+}
+
+/** Reference, address and lawyer for several cases, for lists in other modules. */
+export async function findCasesByIds(tx: Tx, ids: string[]) {
+  if (ids.length === 0) return [];
+  return tx
+    .select({
+      id: cases.id,
+      reference: cases.reference,
+      jurisdictionCode: cases.jurisdictionCode,
+      propertyAddress: cases.propertyAddress,
+      status: cases.status,
+      assignedLawyerId: cases.assignedLawyerId,
+    })
+    .from(cases)
+    .where(inArray(cases.id, ids));
+}
+
+/** Open and held cases, for jobs that look across a firm's live work. */
+export async function listActiveCases(tx: Tx) {
+  return tx
+    .select({
+      id: cases.id,
+      reference: cases.reference,
+      jurisdictionCode: cases.jurisdictionCode,
+      assignedLawyerId: cases.assignedLawyerId,
+    })
+    .from(cases)
+    .where(inArray(cases.status, ["open", "on_hold"]));
 }

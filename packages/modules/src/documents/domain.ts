@@ -81,6 +81,9 @@ const ORDER: Record<ItemState, number> = {
 
 export const needsAttention = (state: ItemState) => ORDER[state] <= 3;
 
+/** A checklist item is done once a clean file is in place, even if it expires soon. */
+export const isDone = (state: ItemState) => state === "ready" || state === "expiring";
+
 export function sortChecklist<T extends { state: ItemState; sortOrder: number }>(items: T[]): T[] {
   return [...items].sort((a, b) => ORDER[a.state] - ORDER[b.state] || a.sortOrder - b.sortOrder);
 }

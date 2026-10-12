@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { Db } from "@kleidi/db";
 import { AppError } from "@kleidi/kernel";
 import { listForEntity } from "@kleidi/modules/audit";
+import { outstandingForCurrentStage } from "@kleidi/modules/documents";
 import {
   addParty,
   CASE_STATUSES,
@@ -91,7 +92,8 @@ const Activity = z.array(
 );
 
 const Transition = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("advance") }),
+  // override: why the case may move on with this stage's checklist unfinished.
+  z.object({ kind: z.literal("advance"), override: z.string().max(500).optional() }),
   z.object({ kind: z.literal("resume") }),
   z.object({ kind: z.literal("stepBack"), reason: z.string().max(500) }),
   z.object({ kind: z.literal("hold"), reason: z.string().max(500) }),
@@ -189,12 +191,21 @@ export const caseRoutes: FastifyPluginAsyncZod<{
       const { user, firm } = await ctx.requireFirm(request);
       const version = expectedVersion(request);
       return idempotent(request, reply, user.userId, async () => {
+        const { body } = request;
+        const checklist =
+          body.kind === "advance"
+            ? {
+                outstanding: await outstandingForCurrentStage(db, firm.firmId, request.params.id),
+                overrideReason: body.override,
+              }
+            : undefined;
         await transitionCase(db, {
           firm,
           actor: user,
           caseId: request.params.id,
           expectedVersion: version,
-          command: request.body,
+          command: body.kind === "advance" ? { kind: "advance" } : body,
+          checklist,
         });
         return detail(firm.firmId, request.params.id);
       });

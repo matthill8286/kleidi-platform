@@ -9,6 +9,9 @@ export const users = pgTable("users", {
   emailVerified: boolean("email_verified").notNull().default(false),
   image: text("image"),
   locale: text("locale").notNull().default("en"),
+  // E.164 mobile number for SMS reminders, which are off until the user turns them on.
+  phone: text("phone"),
+  smsReminders: boolean("sms_reminders").notNull().default(false),
   twoFactorEnabled: boolean("two_factor_enabled").notNull().default(false),
   createdAt: createdAt(),
   updatedAt: updatedAt(),

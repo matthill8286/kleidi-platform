@@ -1,7 +1,15 @@
 export type Role = "firm_admin" | "lawyer" | "staff";
 
 export type Me = {
-  user: { id: string; name: string; email: string; locale: string; twoFactorEnabled: boolean };
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    locale: string;
+    phone: string | null;
+    smsReminders: boolean;
+    twoFactorEnabled: boolean;
+  };
   firms: { id: string; name: string; slug: string; role: Role }[];
 };
 
@@ -73,7 +81,7 @@ export type NewCase = {
 };
 
 export type Transition =
-  | { kind: "advance" }
+  | { kind: "advance"; override?: string }
   | { kind: "resume" }
   | { kind: "stepBack" | "hold" | "cancel"; reason: string };
 
@@ -105,6 +113,7 @@ export type CaseDocuments = {
     key: string;
     label: Localised;
     position: "past" | "current" | "future";
+    outstanding: number;
     items: {
       requirementKey: string;
       label: Localised;
@@ -115,7 +124,31 @@ export type CaseDocuments = {
     }[];
   }[];
   other: DocumentView[];
-  summary: { total: number; ready: number; attention: number };
+  summary: { total: number; ready: number; attention: number; gapsBehind: number };
+};
+
+export type Urgency = "done" | "overdue" | "today" | "week" | "later";
+
+export type Deadline = {
+  id: string;
+  caseId: string;
+  caseReference: string;
+  propertyAddress: string | null;
+  title: string;
+  notes: string | null;
+  dueAt: string;
+  owner: { id: string; name: string } | null;
+  remindBeforeHours: number[];
+  completedAt: string | null;
+  urgency: Urgency;
+};
+
+export type NewDeadline = {
+  title: string;
+  dueAt: string;
+  ownerId?: string;
+  remindBeforeHours?: number[];
+  notes?: string;
 };
 
 export type UploadTarget = { requirementKey: string } | { documentId: string } | { title: string };
@@ -281,4 +314,21 @@ export const api = {
       {},
     );
   },
+  updateMe: (body: { locale?: string; phone?: string | null; smsReminders?: boolean }) =>
+    request<void>("PATCH", "/api/v1/me", body),
+  deadlines: (params: { caseId?: string; mine?: boolean; includeDone?: boolean }) => {
+    const search = new URLSearchParams(
+      Object.entries(params).flatMap(([k, v]) =>
+        v === undefined || v === false ? [] : [[k, String(v)]],
+      ),
+    );
+    return request<Deadline[]>("GET", `/api/v1/deadlines?${search}`);
+  },
+  addDeadline: (caseId: string, body: NewDeadline, key: string) =>
+    request<{ id: string }>("POST", `/api/v1/cases/${caseId}/deadlines`, body, {
+      "idempotency-key": key,
+    }),
+  updateDeadline: (id: string, body: Partial<NewDeadline> & { done?: boolean }) =>
+    request<void>("PATCH", `/api/v1/deadlines/${id}`, body),
+  removeDeadline: (id: string) => request<void>("DELETE", `/api/v1/deadlines/${id}`),
 };

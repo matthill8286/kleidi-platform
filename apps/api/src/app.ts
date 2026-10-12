@@ -18,6 +18,7 @@ import { createContext } from "./plugins/context.ts";
 import { registerErrorHandler } from "./plugins/errors.ts";
 import { createIdempotency } from "./plugins/idempotency.ts";
 import { caseRoutes } from "./routes/cases.ts";
+import { deadlineRoutes } from "./routes/deadlines.ts";
 import { documentRoutes } from "./routes/documents.ts";
 import { firmRoutes } from "./routes/firms.ts";
 import { healthRoutes } from "./routes/health.ts";
@@ -66,6 +67,7 @@ export async function buildApp(deps: AppDeps) {
   await typed.register(invitationRoutes, { db: deps.db, ctx, prefix: "/api/v1" });
   const idempotent = createIdempotency(deps.db);
   await typed.register(caseRoutes, { db: deps.db, ctx, idempotent, prefix: "/api/v1" });
+  await typed.register(deadlineRoutes, { db: deps.db, ctx, idempotent, prefix: "/api/v1" });
   await typed.register(documentRoutes, {
     db: deps.db,
     store: deps.store,

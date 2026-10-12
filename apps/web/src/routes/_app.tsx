@@ -8,7 +8,8 @@ import {
 } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { Avatar, Icon, LanguageSwitch, Logo } from "../components/ui.tsx";
-import { getActiveFirm, setActiveFirm } from "../lib/api.ts";
+import { api, getActiveFirm, setActiveFirm } from "../lib/api.ts";
+import i18n from "../i18n.ts";
 import { authClient } from "../lib/auth.ts";
 import { loadMe } from "../lib/session.ts";
 
@@ -20,6 +21,9 @@ export const Route = createFileRoute("/_app")({
     if (!me.user.twoFactorEnabled)
       throw redirect({ to: "/security", search: { redirect: location.href } });
     if (me.firms.length === 0) throw redirect({ to: "/onboarding" });
+    const shown = i18n.resolvedLanguage;
+    if (shown && shown !== me.user.locale)
+      void api.updateMe({ locale: shown }).catch(() => undefined);
     const firm = me.firms.find((f) => f.id === getActiveFirm()) ?? me.firms[0]!;
     setActiveFirm(firm.id);
     return { me, firm };
@@ -41,14 +45,6 @@ function Shell() {
     router.history.push("/sign-in");
   }
 
-  const soon = (icon: "calendar" | "users" | "settings", label: string) => (
-    <span className="soon-link">
-      <Icon name={icon} />
-      {label}
-      <span className="soon">{t("nav.soon")}</span>
-    </span>
-  );
-
   return (
     <div className="shell">
       <aside className="side">
@@ -65,8 +61,14 @@ function Shell() {
             <Icon name="users" />
             {t("nav.team")}
           </Link>
-          {soon("calendar", t("nav.calendar"))}
-          {soon("settings", t("nav.settings"))}
+          <Link to="/deadlines">
+            <Icon name="calendar" />
+            {t("nav.deadlines")}
+          </Link>
+          <Link to="/settings">
+            <Icon name="settings" />
+            {t("nav.settings")}
+          </Link>
         </nav>
         <div className="side-foot">
           <Avatar name={me.user.name} />

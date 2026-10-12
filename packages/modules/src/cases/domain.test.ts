@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { decide, formatReference, type CaseState, type Command } from "./domain.ts";
+import { decide, formatReference, gateAdvance, type CaseState, type Command } from "./domain.ts";
 
 const CYPRUS = [
   "reservation",
@@ -108,5 +108,14 @@ describe("case state machine properties", () => {
         return state.status === "completed";
       }),
     );
+  });
+});
+
+describe("checklist gate", () => {
+  it("lets a complete stage through and holds an incomplete one without a reason", () => {
+    expect(gateAdvance([], undefined)).toBeNull();
+    expect(gateAdvance(["title_deed"], undefined)?.key).toBe("stageIncomplete");
+    expect(gateAdvance(["title_deed"], "no")?.params).toEqual({ count: 1 });
+    expect(gateAdvance(["title_deed"], "Buyer's bank needs the contract first")).toBeNull();
   });
 });

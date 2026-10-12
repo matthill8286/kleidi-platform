@@ -1,2 +1,16 @@
-export { announceDueReminders, type ReminderDue } from "./jobs.ts";
-export { dueReminderOffsets } from "./reminders.ts";
+export {
+  addDeadline,
+  announceDueReminders,
+  changeDeadline,
+  listDeadlines,
+  removeDeadline,
+  setDeadlineDone,
+} from "./application.ts";
+export type { DeadlinesEvent, ReminderDue } from "./events.ts";
+export {
+  cleanReminders,
+  dueReminderOffsets,
+  REMINDER_CHOICES,
+  urgency,
+  type Urgency,
+} from "./reminders.ts";

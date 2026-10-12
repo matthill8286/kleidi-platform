@@ -60,7 +60,8 @@ export function CaseDocumentsCard({ caseId, closed }: { caseId: string; closed: 
         .filter((s) => s.items.length > 0)
         .map((s) => {
           const ready = s.items.filter((i) => i.state === "ready" || i.state === "expiring").length;
-          const expanded = open[s.key] ?? s.position === "current";
+          const gap = s.position === "past" && s.outstanding > 0;
+          const expanded = open[s.key] ?? (s.position === "current" || gap);
           return (
             <div className="doc-stage" key={s.key}>
               <button
@@ -73,6 +74,11 @@ export function CaseDocumentsCard({ caseId, closed }: { caseId: string; closed: 
                 <b>{pick(s.label)}</b>
                 {s.position === "current" && (
                   <span className="chip c-blue">{t("cases.docs.current")}</span>
+                )}
+                {gap && (
+                  <span className="chip c-amber">
+                    {t("cases.docs.missingCount", { count: s.outstanding })}
+                  </span>
                 )}
                 <span style={{ flex: 1 }} />
                 <span className="muted">

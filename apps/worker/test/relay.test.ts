@@ -73,7 +73,9 @@ describe.skipIf(!process.env.DATABASE_URL || !process.env.DATABASE_ADMIN_URL)(
 
       const emails = sent.filter((m) => m.to === invitee);
       expect(emails).toHaveLength(1);
-      expect(emails[0]!.data.link).toMatch(/^http:\/\/localhost:5180\/invite\//);
+      expect((emails[0]!.data as { link: string }).link).toMatch(
+        /^http:\/\/localhost:5180\/invite\//,
+      );
       const [notification] = await withFirm(db, firm.id, (tx) =>
         tx
           .select()

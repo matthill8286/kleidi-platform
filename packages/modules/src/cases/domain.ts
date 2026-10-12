@@ -14,7 +14,11 @@ export type Command =
   | { kind: "cancel"; reason: string };
 
 /** Why a command was refused: a translation key for the web app, and English text. */
-export type Refusal = { key: string; text: string; params?: { status: CaseStatus } };
+export type Refusal = {
+  key: string;
+  text: string;
+  params?: { status?: CaseStatus; count?: number };
+};
 
 export type Decision =
   { ok: true; next: CaseState; change: "stage" | "status" } | { ok: false; reason: Refusal };
@@ -80,3 +84,20 @@ export function decide(stages: readonly string[], state: CaseState, command: Com
 /** "CY-2026-007": the jurisdiction, the year opened and a per-firm, per-year sequence. */
 export const formatReference = (jurisdiction: string, year: number, sequence: number): string =>
   `${jurisdiction}-${year}-${String(sequence).padStart(3, "0")}`;
+
+/**
+ * A case moves past a stage only when that stage's checklist is complete, or when a lawyer
+ * gives a reason to move on anyway. The reason and the skipped items go into the audit trail.
+ */
+export function gateAdvance(
+  outstanding: readonly string[],
+  overrideReason: string | undefined,
+): Refusal | null {
+  if (outstanding.length === 0) return null;
+  if (overrideReason !== undefined && hasReason(overrideReason)) return null;
+  return {
+    key: "stageIncomplete",
+    text: `${outstanding.length} checklist items for this stage are not ready. Give a reason to move on anyway.`,
+    params: { count: outstanding.length },
+  };
+}

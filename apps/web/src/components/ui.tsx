@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { LOCALE_NAMES, SUPPORTED_LOCALES } from "@kleidi/i18n";
+import { api } from "../lib/api.ts";
 
 const PATHS: Record<string, string> = {
   key: '<circle cx="7.5" cy="15.5" r="5.5"/><path d="M21 2l-9.6 9.6M15.5 7.5l3 3L22 7l-3-3"/>',
@@ -103,7 +104,11 @@ export function LanguageSwitch() {
           type="button"
           className={i18n.resolvedLanguage === l ? "on" : ""}
           title={LOCALE_NAMES[l]}
-          onClick={() => void i18n.changeLanguage(l)}
+          onClick={() => {
+            void i18n.changeLanguage(l);
+            // Emails follow the saved language. Signed out, this fails quietly.
+            void api.updateMe({ locale: l }).catch(() => undefined);
+          }}
         >
           {l === "el" ? "ΕΛ" : l.toUpperCase()}
         </button>

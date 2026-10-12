@@ -657,6 +657,18 @@ h2 {
   border-color: var(--green);
   color: #fff;
 }
+.timeline li.gap .dot {
+  background: var(--amber);
+  border-color: var(--amber);
+  color: #fff;
+}
+.timeline li.gap:not(:last-child)::after {
+  background: var(--amber);
+}
+.plain-list {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
 .timeline li.current .dot {
   background: var(--accent);
   border-color: var(--accent);
@@ -766,6 +778,60 @@ h2 {
   cursor: pointer;
 }
 
+/* Deadlines */
+.deadline-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px 18px;
+  border-top: 1px solid var(--line);
+}
+.deadline-row.done b {
+  color: var(--muted) !important;
+  text-decoration: line-through;
+}
+.tick {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: var(--green);
+  flex: none;
+}
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 14px;
+}
+.grid-3 input,
+.grid-3 select,
+.case-grid > div {
+  min-width: 0;
+}
+.checks {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  font-size: 13.5px;
+}
+.checks legend {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--ink);
+  margin-bottom: 6px;
+  padding: 0;
+}
+.checks label,
+.inline-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13.5px;
+  color: var(--text);
+}
+
 @media (max-width: 960px) {
   .team-grid,
   .case-grid {
@@ -780,6 +846,7 @@ h2 {
     display: none;
   }
   .grid-2,
+  .grid-3,
   .party-row {
     grid-template-columns: 1fr;
   }
