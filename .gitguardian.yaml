@@ -1,0 +1,13 @@
+# Local development and test credentials only work against Docker on a developer's machine.
+# Production secrets come from GitHub environment secrets at deploy time and are never committed.
+version: 2
+secret:
+  ignored-paths:
+    - ".env.example"
+    - "docker-compose.yml"
+    - "infra/docker/postgres-init.sql"
+    - ".github/workflows/ci.yml"
+    - "apps/api/test/**"
+    - "apps/worker/test/**"
+    - "packages/db/test/**"
+    - "infra/load/**"
