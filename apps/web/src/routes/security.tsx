@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { AuthLayout, ErrorAlert, Field, Icon } from "../components/ui.tsx";
 import { authClient } from "../lib/auth.ts";
 import { loadMe, ME_KEY, redirectSearch } from "../lib/session.ts";
+import { useErrorText } from "../lib/errors.ts";
 
 export const Route = createFileRoute("/security")({
   validateSearch: redirectSearch,
@@ -20,6 +21,7 @@ type Setup = { qr: string; secret: string; backupCodes: string[] };
 
 function Security() {
   const { t } = useTranslation();
+  const errorText = useErrorText();
   const router = useRouter();
   const { redirect: next } = Route.useSearch();
   const { queryClient } = Route.useRouteContext();
@@ -35,8 +37,7 @@ function Security() {
       password: String(new FormData(e.currentTarget).get("password")),
     });
     setBusy(false);
-    if (failed || !data || data.method !== "totp")
-      return setError(failed?.message ?? t("common.error"));
+    if (failed || !data || data.method !== "totp") return setError(errorText(failed));
     const secret = new URL(data.totpURI).searchParams.get("secret") ?? "";
     setSetup({
       qr: await QRCode.toDataURL(data.totpURI, { margin: 1, width: 200 }),
@@ -52,7 +53,7 @@ function Security() {
     const code = String(new FormData(e.currentTarget).get("code")).replace(/\s/g, "");
     const { error: failed } = await authClient.twoFactor.verifyTotp({ code });
     setBusy(false);
-    if (failed) return setError(t("auth.invalidCode"));
+    if (failed) return setError(errorText(failed, t("auth.invalidCode")));
     await queryClient.invalidateQueries({ queryKey: ME_KEY });
     router.history.push(next ?? "/");
   }

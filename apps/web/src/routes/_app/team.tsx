@@ -3,7 +3,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Avatar, ErrorAlert, Field, Icon } from "../../components/ui.tsx";
-import { api, ApiError, type Role } from "../../lib/api.ts";
+import { api, type Role } from "../../lib/api.ts";
+import { useErrorText } from "../../lib/errors.ts";
 
 export const Route = createFileRoute("/_app/team")({ component: TeamPage });
 
@@ -17,6 +18,7 @@ function TeamPage() {
   const { t, i18n } = useTranslation();
   const { me, firm } = Route.useRouteContext();
   const queryClient = useQueryClient();
+  const errorText = useErrorText();
   const team = useQuery({ queryKey: ["team", firm.id], queryFn: api.team });
   const [sent, setSent] = useState<string | null>(null);
   const invite = useMutation({
@@ -126,15 +128,7 @@ function TeamPage() {
                   ))}
                 </select>
               </Field>
-              <ErrorAlert
-                message={
-                  invite.error
-                    ? invite.error instanceof ApiError
-                      ? invite.error.message
-                      : t("common.error")
-                    : null
-                }
-              />
+              <ErrorAlert message={errorText(invite.error)} />
               {sent && <div className="alert ok">{sent}</div>}
               <button className="btn accent block" disabled={invite.isPending}>
                 <Icon name="send" />

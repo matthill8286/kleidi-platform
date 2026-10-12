@@ -5,13 +5,13 @@ import { useTranslation } from "react-i18next";
 import { ErrorAlert, Field, Icon } from "../../../components/ui.tsx";
 import {
   api,
-  ApiError,
   type NewCase,
   type PartyInput,
   type PartyRole,
   type PropertyType,
 } from "../../../lib/api.ts";
 import { newKey } from "../../../lib/cases.ts";
+import { useErrorText } from "../../../lib/errors.ts";
 
 export const Route = createFileRoute("/_app/cases/new")({ component: NewCasePage });
 
@@ -24,6 +24,7 @@ function NewCasePage() {
   const { firm } = Route.useRouteContext();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const errorText = useErrorText();
   // One key per form: a double submit or a retry after a dropped connection opens one case.
   const [key] = useState(newKey);
   const [parties, setParties] = useState<PartyInput[]>([blank("buyer"), blank("seller")]);
@@ -63,11 +64,7 @@ function NewCasePage() {
     });
   }
 
-  const serverError = open.error
-    ? open.error instanceof ApiError
-      ? open.error.message
-      : t("common.error")
-    : null;
+  const serverError = errorText(open.error);
 
   return (
     <div className="page narrow">

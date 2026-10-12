@@ -3,8 +3,9 @@ import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AuthLayout, ErrorAlert, Icon } from "../components/ui.tsx";
-import { api, ApiError, setActiveFirm } from "../lib/api.ts";
+import { api, setActiveFirm } from "../lib/api.ts";
 import { loadMe, ME_KEY } from "../lib/session.ts";
+import { useErrorText } from "../lib/errors.ts";
 
 export const Route = createFileRoute("/invite/$token")({
   loader: ({ context }) => loadMe(context.queryClient),
@@ -13,6 +14,7 @@ export const Route = createFileRoute("/invite/$token")({
 
 function Invite() {
   const { t } = useTranslation();
+  const errorText = useErrorText();
   const router = useRouter();
   const me = Route.useLoaderData();
   const { token } = Route.useParams();
@@ -35,7 +37,7 @@ function Invite() {
       await queryClient.invalidateQueries({ queryKey: ME_KEY });
       router.history.push("/");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t("common.error"));
+      setError(errorText(err));
       setBusy(false);
     }
   }

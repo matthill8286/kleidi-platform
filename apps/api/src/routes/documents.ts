@@ -3,7 +3,6 @@ import { z } from "zod";
 import type { Db } from "@kleidi/db";
 import { AppError } from "@kleidi/kernel";
 import {
-  ALLOWED_TYPES,
   completeUpload,
   downloadLink,
   listCaseDocuments,
@@ -79,7 +78,7 @@ const UploadRequest = z
     documentId: z.uuid().optional(),
     title: z.string().trim().min(2).max(160).optional(),
     fileName: z.string().trim().min(1).max(200),
-    mimeType: z.enum(Object.keys(ALLOWED_TYPES) as [string, ...string[]]),
+    mimeType: z.string().max(120),
     byteSize: z.number().int().min(1).max(MAX_UPLOAD_BYTES),
   })
   .refine((b) => [b.requirementKey, b.documentId, b.title].filter(Boolean).length === 1, {
@@ -163,7 +162,11 @@ export const documentRoutes: FastifyPluginAsyncZod<{
         expiresOn: request.body.expiresOn,
       });
       if (result.scanStatus === "failed") {
-        throw new AppError("invalid", "The upload did not arrive intact. Try again.");
+        throw new AppError(
+          "invalid",
+          "The upload did not arrive intact. Try again.",
+          "uploadNotIntact",
+        );
       }
       return result;
     },

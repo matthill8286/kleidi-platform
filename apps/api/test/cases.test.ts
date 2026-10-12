@@ -114,6 +114,8 @@ describe.skipIf(!process.env.DATABASE_URL)("cases", () => {
 
     const noReason = await c.post(url, { kind: "hold", reason: "" }, { "if-match": '"v1"' });
     expect(noReason.statusCode).toBe(422);
+    // The web app translates the message from its key.
+    expect(noReason.json()).toMatchObject({ code: "invalid", messageKey: "reasonHold" });
     const held = await c.post(
       url,
       { kind: "hold", reason: "Buyer abroad until May" },

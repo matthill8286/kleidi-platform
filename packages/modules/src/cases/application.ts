@@ -61,11 +61,11 @@ async function nextSequence(tx: Tx, firmId: string, year: number): Promise<numbe
 
 export async function openCase(db: Db, input: OpenCaseInput, clock: Clock = systemClock) {
   if (!input.parties.some((p) => p.role === "buyer")) {
-    throw new AppError("invalid", "A case needs at least one buyer");
+    throw new AppError("invalid", "A case needs at least one buyer", "caseNeedsBuyer");
   }
   const lawyerId = input.assignedLawyerId ?? input.actor.userId;
   if (!(await getMembership(db, lawyerId, input.firm.firmId))) {
-    throw new AppError("invalid", "The assigned lawyer is not in this firm");
+    throw new AppError("invalid", "The assigned lawyer is not in this firm", "lawyerNotInFirm");
   }
   const jurisdiction = await getFirmJurisdiction(db, input.firm.firmId);
 
@@ -138,11 +138,12 @@ export async function openCase(db: Db, input: OpenCaseInput, clock: Clock = syst
 /** Loads the case for a change and checks the caller saw the latest version. */
 async function loadForChange(tx: Tx, caseId: string, expectedVersion: number) {
   const [current] = await tx.select().from(cases).where(eq(cases.id, caseId)).limit(1);
-  if (!current) throw new AppError("not_found", "Case not found");
+  if (!current) throw new AppError("not_found", "Case not found", "caseNotFound");
   if (current.version !== expectedVersion) {
     throw new AppError(
       "precondition_failed",
       "This case changed since you loaded it. Reload and try again.",
+      "caseChanged",
     );
   }
   return current;
@@ -164,6 +165,7 @@ async function bumpVersion(
     throw new AppError(
       "precondition_failed",
       "This case changed since you loaded it. Reload and try again.",
+      "caseChanged",
     );
   }
   return updated;
@@ -188,7 +190,7 @@ export async function transitionCase(
       { stageKey: current.currentStageKey, status: current.status },
       input.command,
     );
-    if (!decision.ok) throw new AppError("invalid", decision.reason);
+    if (!decision.ok) throw AppError.from("invalid", decision.reason);
 
     const now = clock.now();
     const { next } = decision;
@@ -263,7 +265,9 @@ export async function addParty(
   return withFirm(db, input.firm.firmId, async (tx) => {
     const current = await loadForChange(tx, input.caseId, input.expectedVersion);
     if (current.status === "completed" || current.status === "cancelled") {
-      throw new AppError("invalid", `A ${current.status} case cannot change`);
+      throw new AppError("invalid", `A ${current.status} case cannot change`, "caseClosed", {
+        status: current.status,
+      });
     }
     const updated = await bumpVersion(tx, current.id, current.version, { updatedAt: clock.now() });
     const [party] = await tx
@@ -298,7 +302,7 @@ export async function addParty(
 export async function getCase(db: Db, firmId: string, caseId: string) {
   return withFirm(db, firmId, async (tx) => {
     const [row] = await tx.select().from(cases).where(eq(cases.id, caseId)).limit(1);
-    if (!row) throw new AppError("not_found", "Case not found");
+    if (!row) throw new AppError("not_found", "Case not found", "caseNotFound");
     const [parties, history, template] = await Promise.all([
       tx
         .select()

@@ -36,14 +36,15 @@ export type UploadTarget = { requirementKey: string } | { documentId: string } |
 
 async function caseOrThrow(tx: Tx, caseId: string) {
   const c = await findCase(tx, caseId);
-  if (!c) throw new AppError("not_found", "Case not found");
+  if (!c) throw new AppError("not_found", "Case not found", "caseNotFound");
   return c;
 }
 
 async function requirementFor(db: Db, jurisdiction: string, key: string) {
   const template = await getTemplate(db, jurisdiction);
   const requirement = template.requirements.find((r) => r.key === key);
-  if (!requirement) throw new AppError("invalid", `Unknown checklist item ${key}`);
+  if (!requirement)
+    throw new AppError("invalid", `Unknown checklist item ${key}`, "unknownRequirement");
   return requirement;
 }
 
@@ -62,7 +63,7 @@ async function targetDocument(
       .from(documents)
       .where(and(eq(documents.id, target.documentId), eq(documents.caseId, caseId)))
       .for("update");
-    if (!doc) throw new AppError("not_found", "Document not found");
+    if (!doc) throw new AppError("not_found", "Document not found", "documentNotFound");
     return doc;
   }
   if ("requirementKey" in target) {
@@ -79,7 +80,7 @@ async function targetDocument(
     return doc!;
   }
   const title = target.title.trim();
-  if (title.length < 2) throw new AppError("invalid", "Give the document a title");
+  if (title.length < 2) throw new AppError("invalid", "Give the document a title", "documentTitle");
   const [doc] = await tx.insert(documents).values({ firmId, caseId, title }).returning();
   return doc!;
 }
@@ -102,12 +103,16 @@ export async function requestUpload(
   },
 ) {
   const problem = uploadProblem(input);
-  if (problem) throw new AppError("invalid", problem);
+  if (problem) throw AppError.from("invalid", problem);
 
   const created = await withFirm(db, input.firm.firmId, async (tx) => {
     const c = await caseOrThrow(tx, input.caseId);
     if (c.status === "cancelled")
-      throw new AppError("invalid", "A cancelled case cannot take documents");
+      throw new AppError(
+        "invalid",
+        "A cancelled case cannot take documents",
+        "caseCancelledDocuments",
+      );
     const doc = await targetDocument(
       db,
       tx,
@@ -168,7 +173,7 @@ export async function completeUpload(
       .innerJoin(documents, eq(documents.id, documentVersions.documentId))
       .where(eq(documentVersions.id, input.versionId))
       .for("update");
-    if (!row) throw new AppError("not_found", "Upload not found");
+    if (!row) throw new AppError("not_found", "Upload not found", "uploadNotFound");
     const { v, d } = row;
     // Completing twice is harmless: the second call changes nothing.
     if (v.scanStatus !== "uploading")
@@ -176,7 +181,11 @@ export async function completeUpload(
 
     const size = await store.size(v.objectKey);
     if (size === null)
-      throw new AppError("invalid", "The file has not arrived yet. Try the upload again.");
+      throw new AppError(
+        "invalid",
+        "The file has not arrived yet. Try the upload again.",
+        "fileNotArrived",
+      );
     if (size !== v.byteSize) {
       await tx
         .update(documentVersions)
@@ -290,10 +299,15 @@ export async function downloadLink(db: Db, store: ObjectStore, firmId: string, v
       .limit(1);
     return row;
   });
-  if (!v) throw new AppError("not_found", "Document not found");
+  if (!v) throw new AppError("not_found", "Document not found", "documentNotFound");
   if (v.scanStatus === "infected")
-    throw new AppError("forbidden", "This file failed the virus scan and is quarantined");
-  if (v.scanStatus !== "clean") throw new AppError("conflict", "This file is still being checked");
+    throw new AppError(
+      "forbidden",
+      "This file failed the virus scan and is quarantined",
+      "fileQuarantined",
+    );
+  if (v.scanStatus !== "clean")
+    throw new AppError("conflict", "This file is still being checked", "fileScanning");
   return { url: await store.signDownload(v.objectKey, v.fileName, DOWNLOAD_LINK_SECONDS) };
 }
 
@@ -314,7 +328,7 @@ export async function updateDocument(
       .from(documents)
       .where(eq(documents.id, input.documentId))
       .for("update");
-    if (!doc) throw new AppError("not_found", "Document not found");
+    if (!doc) throw new AppError("not_found", "Document not found", "documentNotFound");
     const changes = {
       ...(input.visibility === undefined ? {} : { visibility: input.visibility }),
       ...(input.expiresOn === undefined ? {} : { expiresOn: input.expiresOn, expiryFlag: null }),

@@ -21,15 +21,31 @@ const STATUS: Record<ErrorCode, number> = {
   precondition_failed: 412,
 };
 
-/** A failure the caller can act on. The API turns it into an RFC 9457 problem response. */
+export type MessageParams = Record<string, string | number>;
+
+/** A user-facing message: a key the web app translates, and the English text as fallback. */
+export type Message = { key: string; text: string; params?: MessageParams };
+
+/**
+ * A failure the caller can act on. The API turns it into an RFC 9457 problem response.
+ * `key` names the translation in the web app's `errors` strings.
+ */
 export class AppError extends Error {
   readonly code: ErrorCode;
   readonly status: number;
+  readonly key: string | undefined;
+  readonly params: MessageParams | undefined;
 
-  constructor(code: ErrorCode, message: string) {
+  constructor(code: ErrorCode, message: string, key?: string, params?: MessageParams) {
     super(message);
     this.name = "AppError";
     this.code = code;
     this.status = STATUS[code];
+    this.key = key;
+    this.params = params;
+  }
+
+  static from(code: ErrorCode, message: Message): AppError {
+    return new AppError(code, message.text, message.key, message.params);
   }
 }

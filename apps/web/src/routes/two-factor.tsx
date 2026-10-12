@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { AuthLayout, ErrorAlert, Field, Icon } from "../components/ui.tsx";
 import { authClient } from "../lib/auth.ts";
 import { ME_KEY, redirectSearch } from "../lib/session.ts";
+import { useErrorText } from "../lib/errors.ts";
 
 export const Route = createFileRoute("/two-factor")({
   validateSearch: redirectSearch,
@@ -12,6 +13,7 @@ export const Route = createFileRoute("/two-factor")({
 
 function TwoFactor() {
   const { t } = useTranslation();
+  const errorText = useErrorText();
   const router = useRouter();
   const { redirect: next } = Route.useSearch();
   const { queryClient } = Route.useRouteContext();
@@ -25,7 +27,7 @@ function TwoFactor() {
     setError(null);
     const { error: failed } = await authClient.twoFactor.verifyTotp({ code });
     setBusy(false);
-    if (failed) return setError(t("auth.invalidCode"));
+    if (failed) return setError(errorText(failed, t("auth.invalidCode")));
     await queryClient.invalidateQueries({ queryKey: ME_KEY });
     router.history.push(next ?? "/");
   }

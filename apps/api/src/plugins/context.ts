@@ -33,9 +33,13 @@ export function createContext(deps: { db: Db; auth: Auth }) {
     options: { allowWithoutTwoFactor?: boolean } = {},
   ) {
     const user = await currentUser(request);
-    if (!user) throw new AppError("unauthenticated", "Sign in to continue");
+    if (!user) throw new AppError("unauthenticated", "Sign in to continue", "signIn");
     if (!user.twoFactorEnabled && !options.allowWithoutTwoFactor) {
-      throw new AppError("two_factor_required", "Set up two-factor sign-in to continue");
+      throw new AppError(
+        "two_factor_required",
+        "Set up two-factor sign-in to continue",
+        "twoFactorRequired",
+      );
     }
     return user;
   }
@@ -49,7 +53,7 @@ export function createContext(deps: { db: Db; auth: Auth }) {
       throw new AppError("invalid", `Send the firm id in the ${FIRM_HEADER} header`);
     }
     const role = await getMembership(deps.db, user.userId, firmId);
-    if (!role) throw new AppError("forbidden", "You are not a member of this firm");
+    if (!role) throw new AppError("forbidden", "You are not a member of this firm", "notMember");
     return { user, firm: { firmId, role } };
   }
 

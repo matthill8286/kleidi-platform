@@ -2,8 +2,9 @@ import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { AuthLayout, ErrorAlert, Field, Icon } from "../components/ui.tsx";
-import { api, ApiError, setActiveFirm } from "../lib/api.ts";
+import { api, setActiveFirm } from "../lib/api.ts";
 import { loadMe, ME_KEY } from "../lib/session.ts";
+import { useErrorText } from "../lib/errors.ts";
 
 export const Route = createFileRoute("/onboarding")({
   beforeLoad: async ({ context, location }) => {
@@ -18,6 +19,7 @@ export const Route = createFileRoute("/onboarding")({
 
 function Onboarding() {
   const { t } = useTranslation();
+  const errorText = useErrorText();
   const router = useRouter();
   const { queryClient } = Route.useRouteContext();
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +35,7 @@ function Onboarding() {
       await queryClient.invalidateQueries({ queryKey: ME_KEY });
       router.history.push("/team");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t("common.error"));
+      setError(errorText(err));
       setBusy(false);
     }
   }

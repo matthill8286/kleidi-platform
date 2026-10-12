@@ -14,22 +14,12 @@ const today = new Date("2026-10-11T09:00:00Z");
 
 describe("document rules", () => {
   it("accepts PDFs, images and Word files up to 25 MB", () => {
-    expect(
-      uploadProblem({ fileName: "deed.pdf", mimeType: "application/pdf", byteSize: 1000 }),
-    ).toBeNull();
-    expect(
-      uploadProblem({ fileName: "a.exe", mimeType: "application/x-msdownload", byteSize: 10 }),
-    ).toMatch(/type/);
-    expect(
-      uploadProblem({
-        fileName: "big.pdf",
-        mimeType: "application/pdf",
-        byteSize: MAX_UPLOAD_BYTES + 1,
-      }),
-    ).toMatch(/25 MB/);
-    expect(
-      uploadProblem({ fileName: "empty.pdf", mimeType: "application/pdf", byteSize: 0 }),
-    ).toMatch(/empty/);
+    const check = (fileName: string, mimeType: string, byteSize: number) =>
+      uploadProblem({ fileName, mimeType, byteSize })?.key ?? null;
+    expect(check("deed.pdf", "application/pdf", 1000)).toBeNull();
+    expect(check("a.exe", "application/x-msdownload", 10)).toBe("fileType");
+    expect(check("big.pdf", "application/pdf", MAX_UPLOAD_BYTES + 1)).toBe("fileTooBig");
+    expect(check("empty.pdf", "application/pdf", 0)).toBe("fileEmpty");
   });
 
   it("dates stale searches from the upload day", () => {

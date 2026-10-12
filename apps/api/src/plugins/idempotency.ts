@@ -44,10 +44,15 @@ export function createIdempotency(db: Db) {
       throw new AppError(
         "invalid",
         "This Idempotency-Key was already used for a different request",
+        "requestReused",
       );
     }
     if (claim.kind === "in_progress") {
-      throw new AppError("conflict", "A request with this Idempotency-Key is still running");
+      throw new AppError(
+        "conflict",
+        "A request with this Idempotency-Key is still running",
+        "requestRunning",
+      );
     }
     if (claim.kind === "replay") {
       const stored = claim.response as { body: unknown; headers?: Record<string, string> };

@@ -16,12 +16,21 @@ export const ALLOWED_TYPES: Record<string, string> = {
 export type ScanStatus = "uploading" | "pending" | "clean" | "infected" | "failed";
 
 /** Returns why an upload is refused, or null when it may go ahead. */
-export function uploadProblem(file: { fileName: string; mimeType: string; byteSize: number }) {
+export function uploadProblem(file: {
+  fileName: string;
+  mimeType: string;
+  byteSize: number;
+}): { key: string; text: string } | null {
   if (!ALLOWED_TYPES[file.mimeType])
-    return "This file type is not accepted. Upload a PDF, image or Word file.";
-  if (file.byteSize <= 0) return "The file is empty";
-  if (file.byteSize > MAX_UPLOAD_BYTES) return "Files can be at most 25 MB";
-  if (!file.fileName.trim() || file.fileName.length > 200) return "The file name is not valid";
+    return {
+      key: "fileType",
+      text: "This file type is not accepted. Upload a PDF, image or Word file.",
+    };
+  if (file.byteSize <= 0) return { key: "fileEmpty", text: "The file is empty" };
+  if (file.byteSize > MAX_UPLOAD_BYTES)
+    return { key: "fileTooBig", text: "Files can be at most 25 MB" };
+  if (!file.fileName.trim() || file.fileName.length > 200)
+    return { key: "fileName", text: "The file name is not valid" };
   return null;
 }
 

@@ -13,8 +13,16 @@ export type Command =
   | { kind: "resume" }
   | { kind: "cancel"; reason: string };
 
+/** Why a command was refused: a translation key for the web app, and English text. */
+export type Refusal = { key: string; text: string; params?: { status: CaseStatus } };
+
 export type Decision =
-  { ok: true; next: CaseState; change: "stage" | "status" } | { ok: false; reason: string };
+  { ok: true; next: CaseState; change: "stage" | "status" } | { ok: false; reason: Refusal };
+
+const no = (key: string, text: string, status?: CaseStatus): Decision => ({
+  ok: false,
+  reason: status ? { key, text, params: { status } } : { key, text },
+});
 
 const MIN_REASON = 3;
 const hasReason = (r: string) => r.trim().length >= MIN_REASON;
@@ -26,14 +34,14 @@ const hasReason = (r: string) => r.trim().length >= MIN_REASON;
  */
 export function decide(stages: readonly string[], state: CaseState, command: Command): Decision {
   const index = stages.indexOf(state.stageKey);
-  if (index < 0) return { ok: false, reason: `Unknown stage ${state.stageKey}` };
+  if (index < 0) return no("unknownStage", `Unknown stage ${state.stageKey}`);
   const last = stages.length - 1;
 
   switch (command.kind) {
     case "advance": {
       if (state.status !== "open")
-        return { ok: false, reason: `A ${state.status} case cannot move` };
-      if (index === last) return { ok: false, reason: "The case is already at its last stage" };
+        return no("cannotMove", `A ${state.status} case cannot move`, state.status);
+      if (index === last) return no("atLastStage", "The case is already at its last stage");
       const stageKey = stages[index + 1]!;
       return {
         ok: true,
@@ -43,27 +51,27 @@ export function decide(stages: readonly string[], state: CaseState, command: Com
     }
     case "stepBack": {
       if (state.status !== "open")
-        return { ok: false, reason: `A ${state.status} case cannot move` };
-      if (index === 0) return { ok: false, reason: "The case is already at its first stage" };
-      if (!hasReason(command.reason)) return { ok: false, reason: "Give a reason for moving back" };
+        return no("cannotMove", `A ${state.status} case cannot move`, state.status);
+      if (index === 0) return no("atFirstStage", "The case is already at its first stage");
+      if (!hasReason(command.reason)) return no("reasonStepBack", "Give a reason for moving back");
       return { ok: true, change: "stage", next: { stageKey: stages[index - 1]!, status: "open" } };
     }
     case "hold": {
       if (state.status !== "open")
-        return { ok: false, reason: "Only an open case can be put on hold" };
-      if (!hasReason(command.reason)) return { ok: false, reason: "Give a reason for the hold" };
+        return no("onlyOpenHold", "Only an open case can be put on hold");
+      if (!hasReason(command.reason)) return no("reasonHold", "Give a reason for the hold");
       return { ok: true, change: "status", next: { ...state, status: "on_hold" } };
     }
     case "resume": {
       if (state.status !== "on_hold")
-        return { ok: false, reason: "Only a held case can be resumed" };
+        return no("onlyHeldResume", "Only a held case can be resumed");
       return { ok: true, change: "status", next: { ...state, status: "open" } };
     }
     case "cancel": {
       if (state.status === "completed" || state.status === "cancelled") {
-        return { ok: false, reason: `A ${state.status} case cannot be cancelled` };
+        return no("cannotCancel", `A ${state.status} case cannot be cancelled`, state.status);
       }
-      if (!hasReason(command.reason)) return { ok: false, reason: "Give a reason for cancelling" };
+      if (!hasReason(command.reason)) return no("reasonCancel", "Give a reason for cancelling");
       return { ok: true, change: "status", next: { ...state, status: "cancelled" } };
     }
   }

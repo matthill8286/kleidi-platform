@@ -25,7 +25,7 @@ export const meRoutes: FastifyPluginAsyncZod<{ db: Db; ctx: Context }> = async (
   // Allowed before two-factor setup, so the web app knows where to send the user next.
   app.get("/me", { schema: { response: { 200: Me } } }, async (request) => {
     const user = await ctx.currentUser(request);
-    if (!user) throw new AppError("unauthenticated", "Sign in to continue");
+    if (!user) throw new AppError("unauthenticated", "Sign in to continue", "signIn");
     return {
       user: {
         id: user.userId,

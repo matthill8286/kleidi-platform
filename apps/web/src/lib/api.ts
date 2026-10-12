@@ -124,10 +124,21 @@ export type UploadTarget = { requirementKey: string } | { documentId: string } |
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
-  constructor(status: number, code: string, message: string) {
+  // The translation key and values for the message, when the API sends them.
+  readonly key: string | undefined;
+  readonly params: Record<string, string | number> | undefined;
+  constructor(
+    status: number,
+    code: string,
+    message: string,
+    key?: string,
+    params?: Record<string, string | number>,
+  ) {
     super(message);
     this.status = status;
     this.code = code;
+    this.key = key;
+    this.params = params;
   }
 }
 
@@ -168,8 +179,19 @@ async function request<T>(
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
   if (!res.ok) {
-    const problem = (await res.json().catch(() => ({}))) as { code?: string; title?: string };
-    throw new ApiError(res.status, problem.code ?? "error", problem.title ?? res.statusText);
+    const problem = (await res.json().catch(() => ({}))) as {
+      code?: string;
+      title?: string;
+      messageKey?: string;
+      params?: Record<string, string | number>;
+    };
+    throw new ApiError(
+      res.status,
+      problem.code ?? "error",
+      problem.title ?? res.statusText,
+      problem.messageKey,
+      problem.params,
+    );
   }
   return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
 }
@@ -247,7 +269,12 @@ export const api = {
       body: file,
     });
     if (!put.ok)
-      throw new ApiError(put.status, "upload_failed", "The upload did not finish. Try again.");
+      throw new ApiError(
+        put.status,
+        "upload_failed",
+        "The upload did not finish. Try again.",
+        "uploadFailed",
+      );
     return request<{ scanStatus: string }>(
       "POST",
       `/api/v1/documents/versions/${link.versionId}/complete`,

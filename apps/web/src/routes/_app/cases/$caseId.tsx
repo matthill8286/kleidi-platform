@@ -14,6 +14,7 @@ import {
   type Transition,
 } from "../../../lib/api.ts";
 import { newKey, STATUS_CHIP, useStageLabels } from "../../../lib/cases.ts";
+import { useErrorText } from "../../../lib/errors.ts";
 
 export const Route = createFileRoute("/_app/cases/$caseId")({ component: CasePage });
 
@@ -25,6 +26,7 @@ function CasePage() {
   const { caseId } = Route.useParams();
   const { firm } = Route.useRouteContext();
   const queryClient = useQueryClient();
+  const errorText = useErrorText();
   const detail = useQuery({ queryKey: ["case", caseId], queryFn: () => api.getCase(caseId) });
   // The audit trail is written by the worker a moment after each change, so keep it fresh.
   const activity = useQuery({
@@ -64,9 +66,7 @@ function CasePage() {
   if (detail.isError)
     return (
       <div className="page">
-        <ErrorAlert
-          message={detail.error instanceof ApiError ? detail.error.message : t("common.error")}
-        />
+        <ErrorAlert message={errorText(detail.error)} />
       </div>
     );
 
@@ -177,6 +177,7 @@ function Actions({
 }) {
   const { t } = useTranslation();
   const [asking, setAsking] = useState<ReasonKind | null>(null);
+  const errorText = useErrorText();
   const move = useMutation({
     mutationFn: (body: Transition) => onWrite(api.transition(c.id, c.version, body, newKey())),
     onSuccess: () => setAsking(null),
@@ -187,11 +188,7 @@ function Actions({
   const next = c.stages[index + 1];
   const isLast = index === c.stages.length - 2;
   const error =
-    move.error && !(move.error instanceof ApiError && move.error.status === 412)
-      ? move.error instanceof ApiError
-        ? move.error.message
-        : t("common.error")
-      : null;
+    move.error instanceof ApiError && move.error.status === 412 ? null : errorText(move.error);
 
   function submitReason(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -274,6 +271,7 @@ function Parties({
 }) {
   const { t } = useTranslation();
   const [adding, setAdding] = useState(false);
+  const errorText = useErrorText();
   const add = useMutation({
     mutationFn: (body: PartyInput) => onWrite(api.addParty(c.id, c.version, body, newKey())),
     onSuccess: () => setAdding(false),
@@ -335,11 +333,9 @@ function Parties({
           </Field>
           <ErrorAlert
             message={
-              add.error && !(add.error instanceof ApiError && add.error.status === 412)
-                ? add.error instanceof ApiError
-                  ? add.error.message
-                  : t("common.error")
-                : null
+              add.error instanceof ApiError && add.error.status === 412
+                ? null
+                : errorText(add.error)
             }
           />
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>

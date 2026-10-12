@@ -3,7 +3,6 @@ import { useRef, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import {
   api,
-  ApiError,
   type CaseDocuments,
   type DocumentView,
   type ItemState,
@@ -11,6 +10,7 @@ import {
   type UploadTarget,
 } from "../lib/api.ts";
 import { newKey } from "../lib/cases.ts";
+import { useErrorText } from "../lib/errors.ts";
 import { ErrorAlert, Field, Icon } from "./ui.tsx";
 
 const MAX_BYTES = 25 * 1024 * 1024;
@@ -148,6 +148,7 @@ function DocumentRow({
   const input = useRef<HTMLInputElement>(null);
   const [tooBig, setTooBig] = useState(false);
   const upload = useUpload(caseId);
+  const errorText = useErrorText();
   const visibility = useMutation({
     mutationFn: (v: "client" | "firm") => api.updateDocument(document!.id, { visibility: v }),
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["case", caseId, "documents"] }),
@@ -240,17 +241,7 @@ function DocumentRow({
             ))}
           </details>
         )}
-        <ErrorAlert
-          message={
-            tooBig
-              ? t("cases.docs.tooBig")
-              : upload.error
-                ? upload.error instanceof ApiError
-                  ? upload.error.message
-                  : t("common.error")
-                : null
-          }
-        />
+        <ErrorAlert message={tooBig ? t("cases.docs.tooBig") : errorText(upload.error)} />
       </div>
       <div className="doc-actions">
         {document && latest && (
@@ -315,6 +306,7 @@ function OtherDocuments({
   const { t } = useTranslation();
   const [adding, setAdding] = useState(false);
   const upload = useUpload(caseId);
+  const errorText = useErrorText();
 
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -365,15 +357,7 @@ function OtherDocuments({
               <input name="file" type="file" accept={ACCEPT} required />
             </Field>
           </div>
-          <ErrorAlert
-            message={
-              upload.error
-                ? upload.error instanceof ApiError
-                  ? upload.error.message
-                  : t("common.error")
-                : null
-            }
-          />
+          <ErrorAlert message={errorText(upload.error)} />
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
             <button type="button" className="btn quiet" onClick={() => setAdding(false)}>
               {t("common.cancel")}

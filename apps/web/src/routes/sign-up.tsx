@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { AuthLayout, ErrorAlert, Field } from "../components/ui.tsx";
 import { authClient } from "../lib/auth.ts";
 import { loadMe, ME_KEY, redirectSearch } from "../lib/session.ts";
+import { useErrorText } from "../lib/errors.ts";
 
 export const Route = createFileRoute("/sign-up")({
   validateSearch: redirectSearch,
@@ -16,6 +17,7 @@ export const Route = createFileRoute("/sign-up")({
 
 function SignUp() {
   const { t } = useTranslation();
+  const errorText = useErrorText();
   const router = useRouter();
   const { redirect: next } = Route.useSearch();
   const { queryClient } = Route.useRouteContext();
@@ -33,7 +35,7 @@ function SignUp() {
       password: String(form.get("password")),
     });
     setBusy(false);
-    if (failed) return setError(failed.message ?? t("common.error"));
+    if (failed) return setError(errorText(failed));
     await queryClient.invalidateQueries({ queryKey: ME_KEY });
     // New users secure their account before anything else.
     return router.navigate({ to: "/security", search: next ? { redirect: next } : {} });
