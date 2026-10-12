@@ -67,6 +67,7 @@ const command: fc.Arbitrary<Command> = fc.oneof(
   reason.map((r) => ({ kind: "stepBack" as const, reason: r })),
   reason.map((r) => ({ kind: "hold" as const, reason: r })),
   reason.map((r) => ({ kind: "cancel" as const, reason: r })),
+  reason.map((r) => ({ kind: "reopen" as const, reason: r })),
 );
 
 describe("case state machine properties", () => {
@@ -86,8 +87,11 @@ describe("case state machine properties", () => {
           expect(Math.abs(to - from)).toBeLessThanOrEqual(1);
           // Only "advance" and "stepBack" move stages; status commands keep the stage.
           if (d.change === "status") expect(to).toBe(from);
-          // Terminal states never change again.
-          expect(["completed", "cancelled"]).not.toContain(before.status);
+          // Closed cases change only by being reopened, and then they are open again.
+          if (before.status === "completed" || before.status === "cancelled") {
+            expect(cmd.kind).toBe("reopen");
+            expect(state.status).toBe("open");
+          }
         }
         // A completed case always sits on the last stage.
         if (state.status === "completed") expect(state.stageKey).toBe(CYPRUS.at(-1));
@@ -117,5 +121,19 @@ describe("checklist gate", () => {
     expect(gateAdvance(["title_deed"], undefined)?.key).toBe("stageIncomplete");
     expect(gateAdvance(["title_deed"], "no")?.params).toEqual({ count: 1 });
     expect(gateAdvance(["title_deed"], "Buyer's bank needs the contract first")).toBeNull();
+  });
+});
+
+describe("reopening", () => {
+  it("reopens a completed case at its last working stage, and only with a reason", () => {
+    const done: CaseState = { stageKey: "completed", status: "completed" };
+    expect(decide(CYPRUS, done, { kind: "reopen", reason: "" }).ok).toBe(false);
+    expect(
+      decide(CYPRUS, done, { kind: "reopen", reason: "Late receipt from the bank" }),
+    ).toMatchObject({
+      ok: true,
+      next: { stageKey: "title_transfer", status: "open" },
+    });
+    expect(decide(CYPRUS, start, { kind: "reopen", reason: "Not closed" }).ok).toBe(false);
   });
 });

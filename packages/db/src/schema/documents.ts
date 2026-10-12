@@ -24,6 +24,8 @@ export const scanStatus = pgEnum("scan_status", [
   "failed",
 ]);
 export const visibility = pgEnum("visibility", ["client", "firm"]);
+// A clean file still needs a lawyer to accept it before its checklist item counts as done.
+export const reviewStatus = pgEnum("review_status", ["pending", "accepted", "rejected"]);
 
 // One document per checklist item or ad-hoc title; each upload is a new version.
 export const documents = pgTable(
@@ -69,6 +71,10 @@ export const documentVersions = pgTable(
     scanStatus: scanStatus("scan_status").notNull().default("uploading"),
     scanDetail: text("scan_detail"),
     scannedAt: timestamp("scanned_at", { withTimezone: true }),
+    review: reviewStatus("review").notNull().default("pending"),
+    reviewNote: text("review_note"),
+    reviewedById: uuid("reviewed_by_id").references(() => users.id),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
     uploadedById: uuid("uploaded_by_id")
       .notNull()
       .references(() => users.id),

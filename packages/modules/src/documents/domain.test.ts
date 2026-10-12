@@ -8,6 +8,8 @@ import {
   sortChecklist,
   uploadProblem,
   type ItemState,
+  type ReviewStatus,
+  type ScanStatus,
 } from "./domain.ts";
 
 const today = new Date("2026-10-11T09:00:00Z");
@@ -29,18 +31,26 @@ describe("document rules", () => {
 
   it("derives a checklist state from the scan and the expiry date", () => {
     expect(itemState(null, null, today)).toBe("missing");
-    expect(itemState({ scanStatus: "uploading" }, null, today)).toBe("missing");
-    expect(itemState({ scanStatus: "pending" }, null, today)).toBe("scanning");
-    expect(itemState({ scanStatus: "infected" }, null, today)).toBe("infected");
-    expect(itemState({ scanStatus: "clean" }, null, today)).toBe("ready");
-    expect(itemState({ scanStatus: "clean" }, "2026-10-20", today)).toBe("expiring");
-    expect(itemState({ scanStatus: "clean" }, "2026-10-10", today)).toBe("expired");
+    const v = (scanStatus: ScanStatus, review: ReviewStatus = "accepted") => ({
+      scanStatus,
+      review,
+    });
+    expect(itemState(v("uploading"), null, today)).toBe("missing");
+    expect(itemState(v("pending"), null, today)).toBe("scanning");
+    expect(itemState(v("infected"), null, today)).toBe("infected");
+    expect(itemState(v("clean", "pending"), null, today)).toBe("review");
+    expect(itemState(v("clean", "rejected"), null, today)).toBe("rejected");
+    expect(itemState(v("clean"), null, today)).toBe("ready");
+    expect(itemState(v("clean"), "2026-10-20", today)).toBe("expiring");
+    expect(itemState(v("clean"), "2026-10-10", today)).toBe("expired");
   });
 
   it("puts every item needing attention above every item that does not", () => {
     const states: ItemState[] = [
       "missing",
       "scanning",
+      "review",
+      "rejected",
       "ready",
       "infected",
       "failed",

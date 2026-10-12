@@ -9,7 +9,13 @@ import { listFirmIds, listTeam } from "../firms/index.ts";
 import { findUsersByIds } from "../identity/index.ts";
 import { getTemplate } from "../jurisdictions/index.ts";
 import type { Notifier, OutboundMessage } from "./notifier.ts";
-import { asLocale, formatWhen, type DigestLine, type Locale } from "./templates.ts";
+import {
+  asLocale,
+  DOCUMENT_STATES,
+  formatWhen,
+  type DigestLine,
+  type Locale,
+} from "./templates.ts";
 
 export const NOTIFICATIONS_CONSUMER = "notifications";
 
@@ -257,9 +263,15 @@ export async function sendDailyDigests(
         documents.push({
           caseReference: c.reference,
           title: await documentTitle(db, c.jurisdictionCode, doc.requirementKey, doc.title, locale),
-          when: doc.expiresOn
-            ? formatWhen(new Date(`${doc.expiresOn}T00:00:00Z`), locale, false)
-            : "",
+          // Why it needs attention, with the date for expiry.
+          when: [
+            DOCUMENT_STATES[locale][doc.state],
+            doc.state === "expiring" || doc.state === "expired"
+              ? formatWhen(new Date(`${doc.expiresOn}T00:00:00Z`), locale, false)
+              : "",
+          ]
+            .filter(Boolean)
+            .join(" "),
         });
       }
       const gaps = stageGaps

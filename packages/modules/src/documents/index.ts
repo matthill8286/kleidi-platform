@@ -7,6 +7,7 @@ export {
   listStageGaps,
   outstandingForCurrentStage,
   requestUpload,
+  reviewDocument,
   scanUploadedVersion,
   SCANNER_CONSUMER,
   updateDocument,

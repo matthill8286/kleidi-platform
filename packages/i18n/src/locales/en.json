@@ -134,7 +134,8 @@
         "stepBack": "Why is the case moving back?",
         "hold": "Why is the case on hold?",
         "cancel": "Why is the case cancelled?",
-        "advance": "Why move on before these are done?"
+        "advance": "Why move on before these are done?",
+        "reopen": "Why reopen this case?"
       },
       "reason": "Reason",
       "confirm": "Confirm",
@@ -145,7 +146,10 @@
       "save": "Save",
       "gapsBehind": "{{count}} checklist items were left unfinished in earlier stages. They are marked below.",
       "notDone": "{{count}} checklist items for this stage are not done:",
-      "moveAnyway": "Move on anyway"
+      "moveAnyway": "Move on anyway",
+      "readOnly": "This case is {{status}} and read-only.",
+      "reopen": "Reopen case",
+      "stageDone": "Everything for {{stage}} is accepted. You can move the case to {{next}}."
     },
     "events": {
       "opened": "opened the case",
@@ -164,7 +168,9 @@
       "deadlineReopened": "reopened the deadline {{title}}",
       "deadlineRemoved": "removed the deadline {{title}}",
       "reminderSent": "Reminder sent for {{title}}",
-      "stageSkipped": "moved the case to {{to}} with {{count}} checklist items unfinished"
+      "stageSkipped": "moved the case to {{to}} with {{count}} checklist items unfinished",
+      "accepted": "accepted {{title}} (v{{version}})",
+      "rejected": "rejected {{title}} (v{{version}})"
     },
     "docs": {
       "title": "Documents",
@@ -179,7 +185,9 @@
         "infected": "Quarantined",
         "failed": "Upload failed",
         "expiring": "Expires soon",
-        "expired": "Expired"
+        "expired": "Expired",
+        "review": "Waiting for review",
+        "rejected": "Rejected"
       },
       "upload": "Upload",
       "newVersion": "New version",
@@ -197,7 +205,13 @@
       "noOther": "No other documents yet.",
       "history": "{{count}} earlier versions",
       "tooBig": "Files can be at most 25 MB.",
-      "missingCount": "{{count}} not done"
+      "missingCount": "{{count}} not done",
+      "acceptedBy": "Accepted by {{name}} on {{date}}",
+      "rejectedBy": "Rejected by {{name}}: {{note}}",
+      "awaitingReview": "Waiting for a lawyer to review it.",
+      "accept": "Accept",
+      "reject": "Reject",
+      "rejectReason": "Why is it rejected?"
     }
   },
   "team": {
@@ -296,7 +310,13 @@
     "phoneInvalid": "Enter the mobile number with its country code, such as +357 99 123456.",
     "phoneNeeded": "Add a mobile number to get SMS reminders.",
     "userNotFound": "This user could not be found.",
-    "stageIncomplete": "{{count}} checklist items for this stage are not ready. Give a reason to move on anyway."
+    "stageIncomplete": "{{count}} checklist items for this stage are not ready. Give a reason to move on anyway.",
+    "onlyClosedReopen": "Only a completed or cancelled case can be reopened.",
+    "reasonReopen": "Give a reason for reopening.",
+    "adminsOnlyReopen": "Only firm admins can reopen a case.",
+    "lawyersOnlyReview": "Only lawyers can accept or reject documents.",
+    "reasonReject": "Say why the document is rejected.",
+    "notLatestVersion": "A newer version of this document exists."
   },
   "deadlines": {
     "heading": "Deadlines",

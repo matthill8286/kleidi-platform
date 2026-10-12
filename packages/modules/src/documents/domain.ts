@@ -51,12 +51,25 @@ export function defaultExpiry(expiryDays: number | null, today: Date): string | 
   return d.toISOString().slice(0, 10);
 }
 
-export type ItemState =
-  "missing" | "scanning" | "ready" | "infected" | "failed" | "expiring" | "expired";
+export type ReviewStatus = "pending" | "accepted" | "rejected";
 
-/** What a checklist item shows, from its latest version and expiry date. */
+export type ItemState =
+  | "missing"
+  | "scanning"
+  | "review"
+  | "rejected"
+  | "ready"
+  | "infected"
+  | "failed"
+  | "expiring"
+  | "expired";
+
+/**
+ * What a checklist item shows, from its latest version and expiry date. A clean file waits
+ * for a lawyer's review; only an accepted file makes the item ready.
+ */
 export function itemState(
-  latest: { scanStatus: ScanStatus } | null,
+  latest: { scanStatus: ScanStatus; review: ReviewStatus } | null,
   expiresOn: string | null,
   today: Date,
 ): ItemState {
@@ -65,23 +78,28 @@ export function itemState(
   if (latest.scanStatus === "infected") return "infected";
   if (latest.scanStatus === "failed") return "failed";
   const expiry: ExpiryStatus = expiryStatus(expiresOn, today);
-  return expiry === "expired" ? "expired" : expiry === "expiring" ? "expiring" : "ready";
+  if (expiry === "expired") return "expired";
+  if (latest.review === "rejected") return "rejected";
+  if (latest.review === "pending") return "review";
+  return expiry === "expiring" ? "expiring" : "ready";
 }
 
 /** Items that need the lawyer's attention come first, so the outstanding work is on top. */
 const ORDER: Record<ItemState, number> = {
   infected: 0,
   failed: 0,
+  rejected: 0,
   expired: 1,
-  missing: 2,
-  expiring: 3,
-  scanning: 4,
-  ready: 5,
+  review: 2,
+  missing: 3,
+  expiring: 4,
+  scanning: 5,
+  ready: 6,
 };
 
-export const needsAttention = (state: ItemState) => ORDER[state] <= 3;
+export const needsAttention = (state: ItemState) => ORDER[state] <= 4;
 
-/** A checklist item is done once a clean file is in place, even if it expires soon. */
+/** A checklist item is done once a lawyer has accepted a clean file, even if it expires soon. */
 export const isDone = (state: ItemState) => state === "ready" || state === "expiring";
 
 export function sortChecklist<T extends { state: ItemState; sortOrder: number }>(items: T[]): T[] {

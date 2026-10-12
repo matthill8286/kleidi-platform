@@ -19,6 +19,8 @@ const ACCEPT = ".pdf,.jpg,.jpeg,.png,.heic,.doc,.docx,.txt";
 const STATE_CHIP: Record<ItemState, string> = {
   missing: "c-grey",
   scanning: "c-blue",
+  review: "c-amber",
+  rejected: "c-red",
   ready: "c-green",
   infected: "c-red",
   failed: "c-red",
@@ -27,7 +29,15 @@ const STATE_CHIP: Record<ItemState, string> = {
 };
 
 /** The case checklist: current stage open, outstanding items first, each with its files. */
-export function CaseDocumentsCard({ caseId, closed }: { caseId: string; closed: boolean }) {
+export function CaseDocumentsCard({
+  caseId,
+  closed,
+  canReview,
+}: {
+  caseId: string;
+  closed: boolean;
+  canReview: boolean;
+}) {
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? "en";
   const pick = (l: Localised) => l[lang] ?? l.en ?? "";
@@ -100,12 +110,18 @@ export function CaseDocumentsCard({ caseId, closed }: { caseId: string; closed: 
                         : { requirementKey: item.requirementKey }
                     }
                     closed={closed}
+                    canReview={canReview}
                   />
                 ))}
             </div>
           );
         })}
-      <OtherDocuments caseId={caseId} docs={docs.data.other} closed={closed} />
+      <OtherDocuments
+        caseId={caseId}
+        docs={docs.data.other}
+        closed={closed}
+        canReview={canReview}
+      />
     </section>
   );
 }
@@ -140,6 +156,7 @@ function DocumentRow({
   document,
   target,
   closed,
+  canReview,
 }: {
   caseId: string;
   title: string;
@@ -148,6 +165,7 @@ function DocumentRow({
   document: DocumentView | null;
   target: UploadTarget;
   closed: boolean;
+  canReview: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
@@ -247,6 +265,9 @@ function DocumentRow({
             ))}
           </details>
         )}
+        {latest?.scanStatus === "clean" && (
+          <Review caseId={caseId} version={latest} canReview={canReview && !closed} />
+        )}
         <ErrorAlert message={tooBig ? t("cases.docs.tooBig") : errorText(upload.error)} />
       </div>
       <div className="doc-actions">
@@ -304,10 +325,12 @@ function OtherDocuments({
   caseId,
   docs,
   closed,
+  canReview,
 }: {
   caseId: string;
   docs: DocumentView[];
   closed: boolean;
+  canReview: boolean;
 }) {
   const { t } = useTranslation();
   const [adding, setAdding] = useState(false);
@@ -346,6 +369,7 @@ function OtherDocuments({
           document={d}
           target={{ documentId: d.id }}
           closed={closed}
+          canReview={canReview}
         />
       ))}
       {docs.length === 0 && !adding && (
@@ -374,6 +398,109 @@ function OtherDocuments({
           </div>
         </form>
       )}
+    </div>
+  );
+}
+
+/**
+ * A lawyer's verdict on the latest clean file. Accepting completes the checklist item;
+ * rejecting needs a short reason, which is shown until a new version arrives.
+ */
+function Review({
+  caseId,
+  version,
+  canReview,
+}: {
+  caseId: string;
+  version: DocumentView["versions"][number];
+  canReview: boolean;
+}) {
+  const { t, i18n } = useTranslation();
+  const queryClient = useQueryClient();
+  const errorText = useErrorText();
+  const [rejecting, setRejecting] = useState(false);
+  const review = useMutation({
+    mutationFn: (body: { decision: "accepted" | "rejected"; note?: string }) =>
+      api.reviewDocument(version.id, body),
+    onSuccess: () => setRejecting(false),
+    onSettled: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["case", caseId, "documents"] }),
+        queryClient.invalidateQueries({ queryKey: ["case", caseId, "activity"] }),
+      ]),
+  });
+  const when = version.reviewedAt
+    ? new Date(version.reviewedAt).toLocaleDateString(i18n.resolvedLanguage, {
+        day: "numeric",
+        month: "short",
+      })
+    : "";
+
+  function reject(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    review.mutate({
+      decision: "rejected",
+      note: String(new FormData(e.currentTarget).get("note") ?? ""),
+    });
+  }
+
+  return (
+    <div className="review">
+      {version.review === "accepted" && (
+        <span className="muted">
+          {t("cases.docs.acceptedBy", { name: version.reviewedBy ?? "", date: when })}
+        </span>
+      )}
+      {version.review === "rejected" && (
+        <span style={{ color: "var(--red)" }}>
+          {t("cases.docs.rejectedBy", {
+            name: version.reviewedBy ?? "",
+            note: version.reviewNote ?? "",
+          })}
+        </span>
+      )}
+      {version.review === "pending" && !canReview && (
+        <span className="muted">{t("cases.docs.awaitingReview")}</span>
+      )}
+      {canReview && version.review !== "accepted" && !rejecting && (
+        <div className="review-actions">
+          <button
+            type="button"
+            className="btn small primary"
+            disabled={review.isPending}
+            onClick={() => review.mutate({ decision: "accepted" })}
+          >
+            <Icon name="check" />
+            {t("cases.docs.accept")}
+          </button>
+          {version.review === "pending" && (
+            <button type="button" className="btn small quiet" onClick={() => setRejecting(true)}>
+              <Icon name="x" />
+              {t("cases.docs.reject")}
+            </button>
+          )}
+        </div>
+      )}
+      {rejecting && (
+        <form className="review-form" onSubmit={reject}>
+          <input
+            name="note"
+            required
+            minLength={3}
+            maxLength={500}
+            autoFocus
+            placeholder={t("cases.docs.rejectReason")}
+            aria-label={t("cases.docs.rejectReason")}
+          />
+          <button className="btn small danger-fill" disabled={review.isPending}>
+            {t("cases.docs.reject")}
+          </button>
+          <button type="button" className="btn small quiet" onClick={() => setRejecting(false)}>
+            {t("common.cancel")}
+          </button>
+        </form>
+      )}
+      <ErrorAlert message={errorText(review.error)} />
     </div>
   );
 }

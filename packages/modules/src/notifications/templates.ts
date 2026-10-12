@@ -179,3 +179,31 @@ export function formatWhen(date: Date, locale: Locale, withTime = true): string 
     timeZone: "Asia/Nicosia",
   });
 }
+
+/** Why a document is in the digest, in each language. */
+export const DOCUMENT_STATES: Record<
+  Locale,
+  Record<"expiring" | "expired" | "infected" | "review" | "rejected", string>
+> = {
+  en: {
+    expiring: "expires",
+    expired: "expired",
+    infected: "failed the virus scan",
+    review: "waiting for your review",
+    rejected: "rejected, new version needed",
+  },
+  el: {
+    expiring: "λήγει",
+    expired: "έληξε",
+    infected: "απέτυχε στον έλεγχο ιών",
+    review: "αναμένει τον έλεγχό σας",
+    rejected: "απορρίφθηκε, χρειάζεται νέα έκδοση",
+  },
+  ru: {
+    expiring: "истекает",
+    expired: "истёк",
+    infected: "не прошёл проверку на вирусы",
+    review: "ждёт вашей проверки",
+    rejected: "отклонён, нужна новая версия",
+  },
+};

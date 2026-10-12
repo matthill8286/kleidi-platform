@@ -8,6 +8,7 @@ import {
   listCaseDocuments,
   MAX_UPLOAD_BYTES,
   requestUpload,
+  reviewDocument,
   updateDocument,
   type ObjectStore,
   type UploadTarget,
@@ -19,6 +20,8 @@ const Localised = z.record(z.string(), z.string());
 const ITEM_STATES = [
   "missing",
   "scanning",
+  "review",
+  "rejected",
   "ready",
   "infected",
   "failed",
@@ -44,6 +47,10 @@ const DocumentView = z.object({
       byteSize: z.number(),
       scanStatus: z.enum(SCAN_STATUSES),
       scanDetail: z.string().nullable(),
+      review: z.enum(["pending", "accepted", "rejected"]),
+      reviewNote: z.string().nullable(),
+      reviewedBy: z.string().nullable(),
+      reviewedAt: z.date().nullable(),
       uploadedBy: z.string().nullable(),
       createdAt: z.date(),
     }),
@@ -175,6 +182,29 @@ export const documentRoutes: FastifyPluginAsyncZod<{
         );
       }
       return result;
+    },
+  );
+
+  app.post(
+    "/documents/versions/:versionId/review",
+    {
+      schema: {
+        params: z.object({ versionId: z.uuid() }),
+        body: z.object({
+          decision: z.enum(["accepted", "rejected"]),
+          note: z.string().max(500).optional(),
+        }),
+      },
+    },
+    async (request, reply) => {
+      const { user, firm } = await ctx.requireFirm(request);
+      await reviewDocument(db, {
+        firm,
+        actor: user,
+        versionId: request.params.versionId,
+        ...request.body,
+      });
+      return reply.code(204).send();
     },
   );
 

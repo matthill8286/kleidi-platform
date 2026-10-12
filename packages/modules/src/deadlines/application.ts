@@ -31,9 +31,16 @@ async function ownerInFirm(db: Db, firmId: string, ownerId: string) {
   }
 }
 
+/** Loads a deadline for a change. Deadlines on completed or cancelled cases are read-only. */
 async function loadDeadline(tx: Tx, id: string) {
   const [row] = await tx.select().from(deadlines).where(eq(deadlines.id, id)).for("update");
   if (!row) throw new AppError("not_found", "Deadline not found", "deadlineNotFound");
+  const c = await findCase(tx, row.caseId);
+  if (c && (c.status === "completed" || c.status === "cancelled")) {
+    throw new AppError("invalid", `A ${c.status} case cannot change`, "caseClosed", {
+      status: c.status,
+    });
+  }
   return row;
 }
 

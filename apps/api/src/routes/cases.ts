@@ -98,6 +98,7 @@ const Transition = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("stepBack"), reason: z.string().max(500) }),
   z.object({ kind: z.literal("hold"), reason: z.string().max(500) }),
   z.object({ kind: z.literal("cancel"), reason: z.string().max(500) }),
+  z.object({ kind: z.literal("reopen"), reason: z.string().max(500) }),
 ]);
 
 const CaseId = z.object({ id: z.uuid() });

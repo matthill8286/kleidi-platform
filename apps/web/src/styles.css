@@ -832,6 +832,30 @@ h2 {
   color: var(--text);
 }
 
+/* Review */
+.review {
+  display: grid;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 13px;
+}
+.review-actions,
+.review-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.review-form input {
+  flex: 1;
+  min-width: 180px;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font: inherit;
+  background: var(--surface);
+}
+
 @media (max-width: 960px) {
   .team-grid,
   .case-grid {

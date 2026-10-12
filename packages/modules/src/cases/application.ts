@@ -185,6 +185,10 @@ export async function transitionCase(
   },
   clock: Clock = systemClock,
 ) {
+  // Reopening undoes a closing decision, so it is kept for firm admins.
+  if (input.command.kind === "reopen" && input.firm.role !== "firm_admin") {
+    throw new AppError("forbidden", "Only firm admins can reopen a case", "adminsOnlyReopen");
+  }
   return withFirm(db, input.firm.firmId, async (tx) => {
     const current = await loadForChange(tx, input.caseId, input.expectedVersion);
     const skipped = input.command.kind === "advance" ? (input.checklist?.outstanding ?? []) : [];
@@ -225,7 +229,7 @@ export async function transitionCase(
         // The last stage is done the moment the case reaches it.
         completedAt: next.status === "completed" ? now : null,
       });
-      const back = input.command.kind === "stepBack";
+      const back = input.command.kind === "stepBack" || input.command.kind === "reopen";
       const changed: CaseStageChanged = {
         ...base,
         type: "cases.StageChanged",

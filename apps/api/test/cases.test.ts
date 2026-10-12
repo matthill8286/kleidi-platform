@@ -108,6 +108,56 @@ describe.skipIf(!process.env.DATABASE_URL)("cases", () => {
     });
   });
 
+  it("locks a completed case until a firm admin reopens it", async () => {
+    const c = await lawyerWithFirm("Closing Lawyer");
+    const created = (await c.post("/api/v1/cases", NEW_CASE)).json();
+    const url = `/api/v1/cases/${created.id}/transitions`;
+    for (let v = 1; v < 8; v++) {
+      await c.post(
+        url,
+        { kind: "advance", override: "Closing quickly in a test" },
+        { "if-match": `"v${v}"` },
+      );
+    }
+    expect((await c.get(`/api/v1/cases/${created.id}`)).json().status).toBe("completed");
+
+    const upload = await c.post(`/api/v1/cases/${created.id}/documents/uploads`, {
+      title: "Late receipt",
+      fileName: "receipt.pdf",
+      mimeType: "application/pdf",
+      byteSize: 100,
+    });
+    expect(upload.json()).toMatchObject({
+      messageKey: "caseClosed",
+      params: { status: "completed" },
+    });
+    const deadline = await c.post(`/api/v1/cases/${created.id}/deadlines`, {
+      title: "Too late",
+      dueAt: new Date(Date.now() + 86_400_000).toISOString(),
+    });
+    expect(deadline.json().messageKey).toBe("caseClosed");
+
+    const noReason = await c.post(url, { kind: "reopen", reason: "" }, { "if-match": '"v8"' });
+    expect(noReason.json().messageKey).toBe("reasonReopen");
+    const reopened = await c.post(
+      url,
+      { kind: "reopen", reason: "Bank sent a late receipt" },
+      { "if-match": '"v8"' },
+    );
+    expect(reopened.json()).toMatchObject({
+      status: "open",
+      currentStageKey: "title_transfer",
+      closedAt: null,
+    });
+    const after = await c.post(`/api/v1/cases/${created.id}/documents/uploads`, {
+      title: "Late receipt",
+      fileName: "receipt.pdf",
+      mimeType: "application/pdf",
+      byteSize: 100,
+    });
+    expect(after.statusCode).toBe(201);
+  });
+
   it("needs the current version to change a case", async () => {
     const c = await lawyerWithFirm("Version Keeper");
     const created = (await c.post("/api/v1/cases", NEW_CASE)).json();

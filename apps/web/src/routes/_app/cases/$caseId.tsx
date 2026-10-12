@@ -19,7 +19,7 @@ import { useErrorText } from "../../../lib/errors.ts";
 
 export const Route = createFileRoute("/_app/cases/$caseId")({ component: CasePage });
 
-type ReasonKind = "advance" | "stepBack" | "hold" | "cancel";
+type ReasonKind = "advance" | "stepBack" | "hold" | "cancel" | "reopen";
 const ROLES: PartyRole[] = ["buyer", "seller", "developer", "bank"];
 
 function CasePage() {
@@ -90,7 +90,8 @@ function CasePage() {
   const gapAt = new Map(
     docStages.filter((s) => s.position === "past").map((s) => [s.key, s.outstanding]),
   );
-  const outstanding = (docStages.find((s) => s.position === "current")?.items ?? [])
+  const currentDocs = docStages.find((s) => s.position === "current");
+  const outstanding = (currentDocs?.items ?? [])
     .filter((i) => i.state !== "ready" && i.state !== "expiring")
     .map((i) => pick(i.label));
 
@@ -140,8 +141,19 @@ function CasePage() {
 
       <div className="case-grid">
         <div style={{ display: "grid", gap: 18, alignContent: "start" }}>
-          <Actions c={c} label={label} onWrite={onWrite} outstanding={outstanding} />
-          <CaseDocumentsCard caseId={c.id} closed={c.status === "cancelled"} />
+          <Actions
+            c={c}
+            label={label}
+            onWrite={onWrite}
+            outstanding={outstanding}
+            stageComplete={Boolean(currentDocs?.items.length) && outstanding.length === 0}
+            isAdmin={firm.role === "firm_admin"}
+          />
+          <CaseDocumentsCard
+            caseId={c.id}
+            closed={c.status === "completed" || c.status === "cancelled"}
+            canReview={firm.role !== "staff"}
+          />
           <section className="card">
             <div className="card-head">
               <h2>{t("cases.detail.timeline")}</h2>
@@ -203,11 +215,15 @@ function Actions({
   label,
   onWrite,
   outstanding,
+  stageComplete,
+  isAdmin,
 }: {
   c: CaseDetail;
   label: (key: string) => string;
   onWrite: (p: Promise<CaseDetail>) => Promise<CaseDetail>;
   outstanding: string[];
+  stageComplete: boolean;
+  isAdmin: boolean;
 }) {
   const { t } = useTranslation();
   const [asking, setAsking] = useState<ReasonKind | null>(null);
@@ -216,8 +232,7 @@ function Actions({
     mutationFn: (body: Transition) => onWrite(api.transition(c.id, c.version, body, newKey())),
     onSuccess: () => setAsking(null),
   });
-  if (c.status === "completed" || c.status === "cancelled") return null;
-
+  const closed = c.status === "completed" || c.status === "cancelled";
   const index = c.stages.findIndex((s) => s.key === c.currentStageKey);
   const next = c.stages[index + 1];
   const isLast = index === c.stages.length - 2;
@@ -231,8 +246,52 @@ function Actions({
     else if (asking) move.mutate({ kind: asking, reason });
   }
 
+  // A closed case is read-only; a firm admin can reopen it with a reason.
+  if (closed) {
+    return (
+      <section className="card actions">
+        <div className="action-row">
+          <span className="muted" style={{ flex: 1 }}>
+            {t("cases.detail.readOnly", { status: t(`cases.statuses.${c.status}`) })}
+          </span>
+          {isAdmin && !asking && (
+            <button className="btn" onClick={() => setAsking("reopen")}>
+              <Icon name="arrowLeft" />
+              {t("cases.detail.reopen")}
+            </button>
+          )}
+        </div>
+        {asking === "reopen" && (
+          <form className="reason" onSubmit={submitReason}>
+            <Field label={t("cases.detail.reasonFor.reopen")}>
+              <input name="reason" required minLength={3} maxLength={500} autoFocus />
+            </Field>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button type="button" className="btn quiet" onClick={() => setAsking(null)}>
+                {t("common.cancel")}
+              </button>
+              <button className="btn primary" disabled={move.isPending}>
+                {t("cases.detail.reopen")}
+              </button>
+            </div>
+          </form>
+        )}
+        <ErrorAlert message={error} />
+      </section>
+    );
+  }
+
   return (
     <section className="card actions">
+      {/* Every checklist item for this stage is accepted: the next step is one click. */}
+      {stageComplete && c.status === "open" && next && (
+        <div className="alert ok" style={{ margin: 0 }}>
+          {t("cases.detail.stageDone", {
+            stage: label(c.currentStageKey),
+            next: label(next.key),
+          })}
+        </div>
+      )}
       <div className="action-row">
         {c.status === "open" && next && (
           <button
@@ -448,6 +507,10 @@ function ActivityCard({
         return t("cases.events.reminderSent", { title: m.title });
       case "documents.VersionUploaded":
         return t("cases.events.uploaded", { title, version: m.version });
+      case "documents.VersionAccepted":
+        return t("cases.events.accepted", { title, version: m.version });
+      case "documents.VersionRejected":
+        return t("cases.events.rejected", { title, version: m.version });
       case "documents.VersionReleased":
         return t("cases.events.released", { title });
       case "documents.VersionQuarantined":

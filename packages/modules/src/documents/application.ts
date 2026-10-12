@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNotNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, ne, or } from "drizzle-orm";
 import { handleOnce, publishEvents, withFirm, type Db, type Tx } from "@kleidi/db";
 import { documents, documentVersions } from "@kleidi/db/schema/documents";
 import { AppError, systemClock, type Clock, type StoredEvent } from "@kleidi/kernel";
@@ -16,12 +16,13 @@ import {
   releasedKey,
   sortChecklist,
   uploadProblem,
-  type ScanStatus,
 } from "./domain.ts";
 import type {
   DocumentUpdated,
   ExpiryFlagged,
+  VersionAccepted,
   VersionQuarantined,
+  VersionRejected,
   VersionReleased,
   VersionUploaded,
 } from "./events.ts";
@@ -34,6 +35,15 @@ const UPLOAD_LINK_SECONDS = 15 * 60;
 const DOWNLOAD_LINK_SECONDS = 5 * 60;
 
 export type UploadTarget = { requirementKey: string } | { documentId: string } | { title: string };
+
+/** Completed and cancelled cases are read-only until a firm admin reopens them. */
+function assertOpen(c: { status: string }) {
+  if (c.status === "completed" || c.status === "cancelled") {
+    throw new AppError("invalid", `A ${c.status} case cannot change`, "caseClosed", {
+      status: c.status,
+    });
+  }
+}
 
 async function caseOrThrow(tx: Tx, caseId: string) {
   const c = await findCase(tx, caseId);
@@ -108,12 +118,7 @@ export async function requestUpload(
 
   const created = await withFirm(db, input.firm.firmId, async (tx) => {
     const c = await caseOrThrow(tx, input.caseId);
-    if (c.status === "cancelled")
-      throw new AppError(
-        "invalid",
-        "A cancelled case cannot take documents",
-        "caseCancelledDocuments",
-      );
+    assertOpen(c);
     const doc = await targetDocument(
       db,
       tx,
@@ -330,6 +335,7 @@ export async function updateDocument(
       .where(eq(documents.id, input.documentId))
       .for("update");
     if (!doc) throw new AppError("not_found", "Document not found", "documentNotFound");
+    assertOpen(await caseOrThrow(tx, doc.caseId));
     const changes = {
       ...(input.visibility === undefined ? {} : { visibility: input.visibility }),
       ...(input.expiresOn === undefined ? {} : { expiresOn: input.expiresOn, expiryFlag: null }),
@@ -385,11 +391,11 @@ export async function listCaseDocuments(
     return { c, docs, versions };
   });
   const template = await getTemplate(db, c.jurisdictionCode);
-  const uploaders = new Map(
-    (await findUsersByIds(db, [...new Set(versions.map((v) => v.uploadedById))])).map((u) => [
-      u.id,
-      u.name,
-    ]),
+  const peopleIds = versions.flatMap((v) =>
+    v.reviewedById ? [v.uploadedById, v.reviewedById] : [v.uploadedById],
+  );
+  const people = new Map(
+    (await findUsersByIds(db, [...new Set(peopleIds)])).map((u) => [u.id, u.name]),
   );
 
   const view = (d: (typeof docs)[number]) => {
@@ -402,7 +408,7 @@ export async function listCaseDocuments(
       requirementKey: d.requirementKey,
       visibility: d.visibility,
       expiresOn: d.expiresOn,
-      state: itemState(latest as { scanStatus: ScanStatus } | null, d.expiresOn, today),
+      state: itemState(latest, d.expiresOn, today),
       versions: history.map((v: VersionRow) => ({
         id: v.id,
         version: v.version,
@@ -411,7 +417,11 @@ export async function listCaseDocuments(
         byteSize: v.byteSize,
         scanStatus: v.scanStatus,
         scanDetail: v.scanDetail,
-        uploadedBy: uploaders.get(v.uploadedById) ?? null,
+        review: v.review,
+        reviewNote: v.reviewNote,
+        reviewedBy: v.reviewedById ? (people.get(v.reviewedById) ?? null) : null,
+        reviewedAt: v.reviewedAt,
+        uploadedBy: people.get(v.uploadedById) ?? null,
         createdAt: v.createdAt,
       })),
     };
@@ -526,24 +536,38 @@ export async function listAttentionDocuments(db: Db, firmId: string) {
       })
       .from(documents)
       .where(isNotNull(documents.expiryFlag));
-    const infected = await tx
+    // The latest file of each document that is quarantined or waiting on a lawyer.
+    const latest = await tx
       .select({
         caseId: documents.caseId,
         title: documents.title,
         requirementKey: documents.requirementKey,
         expiresOn: documents.expiresOn,
+        scanStatus: documentVersions.scanStatus,
+        review: documentVersions.review,
       })
       .from(documentVersions)
       .innerJoin(documents, eq(documents.id, documentVersions.documentId))
       .where(
         and(
-          eq(documentVersions.scanStatus, "infected"),
           eq(documentVersions.version, documents.latestVersion),
+          or(
+            eq(documentVersions.scanStatus, "infected"),
+            and(eq(documentVersions.scanStatus, "clean"), ne(documentVersions.review, "accepted")),
+          ),
         ),
       );
     return [
       ...flagged.map((d) => ({ ...d, state: d.state as "expiring" | "expired" })),
-      ...infected.map((d) => ({ ...d, state: "infected" as const })),
+      ...latest.map(({ scanStatus, review, ...d }) => ({
+        ...d,
+        state:
+          scanStatus === "infected"
+            ? ("infected" as const)
+            : review === "rejected"
+              ? ("rejected" as const)
+              : ("review" as const),
+      })),
     ];
   });
 }
@@ -576,4 +600,77 @@ export async function listStageGaps(db: Db, firmId: string) {
     }
   }
   return gaps;
+}
+
+/**
+ * A lawyer's verdict on a clean file. Accepting completes its checklist item; rejecting
+ * keeps the item open and says why, so a new version can be asked for.
+ */
+export async function reviewDocument(
+  db: Db,
+  input: {
+    firm: FirmContext;
+    actor: Actor;
+    versionId: string;
+    decision: "accepted" | "rejected";
+    note?: string | undefined;
+  },
+  clock: Clock = systemClock,
+) {
+  if (input.firm.role === "staff") {
+    throw new AppError(
+      "forbidden",
+      "Only lawyers can accept or reject documents",
+      "lawyersOnlyReview",
+    );
+  }
+  const note = input.note?.trim() || null;
+  if (input.decision === "rejected" && (!note || note.length < 3)) {
+    throw new AppError("invalid", "Say why the document is rejected", "reasonReject");
+  }
+  return withFirm(db, input.firm.firmId, async (tx) => {
+    const [row] = await tx
+      .select({ v: documentVersions, d: documents })
+      .from(documentVersions)
+      .innerJoin(documents, eq(documents.id, documentVersions.documentId))
+      .where(eq(documentVersions.id, input.versionId))
+      .for("update");
+    if (!row) throw new AppError("not_found", "Document not found", "documentNotFound");
+    const { v, d } = row;
+    assertOpen(await caseOrThrow(tx, d.caseId));
+    if (v.scanStatus !== "clean") {
+      throw new AppError("conflict", "This file is still being checked", "fileScanning");
+    }
+    if (v.version !== d.latestVersion) {
+      throw new AppError("conflict", "A newer version of this document exists", "notLatestVersion");
+    }
+    await tx
+      .update(documentVersions)
+      .set({
+        review: input.decision,
+        reviewNote: note,
+        reviewedById: input.actor.userId,
+        reviewedAt: clock.now(),
+      })
+      .where(eq(documentVersions.id, v.id));
+    const base = {
+      firmId: input.firm.firmId,
+      actorUserId: input.actor.userId,
+      payload: {
+        entityType: "case" as const,
+        entityId: d.caseId,
+        documentId: d.id,
+        requirementKey: d.requirementKey,
+        title: d.title,
+        versionId: v.id,
+        version: v.version,
+        fileName: v.fileName,
+      },
+    };
+    const event: VersionAccepted | VersionRejected =
+      input.decision === "accepted"
+        ? { ...base, type: "documents.VersionAccepted" }
+        : { ...base, type: "documents.VersionRejected", payload: { ...base.payload, note: note! } };
+    await publishEvents(tx, [event]);
+  });
 }

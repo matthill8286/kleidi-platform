@@ -36,6 +36,13 @@
       "when": 1791792086679,
       "tag": "0004_bumpy_wind_dancer",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791794355634,
+      "tag": "0005_charming_starbolt",
+      "breakpoints": true
     }
   ]
 }

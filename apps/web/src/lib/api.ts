@@ -83,10 +83,18 @@ export type NewCase = {
 export type Transition =
   | { kind: "advance"; override?: string }
   | { kind: "resume" }
-  | { kind: "stepBack" | "hold" | "cancel"; reason: string };
+  | { kind: "stepBack" | "hold" | "cancel" | "reopen"; reason: string };
 
 export type ItemState =
-  "missing" | "scanning" | "ready" | "infected" | "failed" | "expiring" | "expired";
+  | "missing"
+  | "scanning"
+  | "review"
+  | "rejected"
+  | "ready"
+  | "infected"
+  | "failed"
+  | "expiring"
+  | "expired";
 
 export type DocumentView = {
   id: string;
@@ -103,6 +111,10 @@ export type DocumentView = {
     byteSize: number;
     scanStatus: "uploading" | "pending" | "clean" | "infected" | "failed";
     scanDetail: string | null;
+    review: "pending" | "accepted" | "rejected";
+    reviewNote: string | null;
+    reviewedBy: string | null;
+    reviewedAt: string | null;
     uploadedBy: string | null;
     createdAt: string;
   }[];
@@ -273,6 +285,8 @@ export const api = {
   addParty: (id: string, version: number, body: PartyInput, key: string) =>
     request<CaseDetail>("POST", `/api/v1/cases/${id}/parties`, body, writeHeaders(key, version)),
   caseDocuments: (id: string) => request<CaseDocuments>("GET", `/api/v1/cases/${id}/documents`),
+  reviewDocument: (versionId: string, body: { decision: "accepted" | "rejected"; note?: string }) =>
+    request<void>("POST", `/api/v1/documents/versions/${versionId}/review`, body),
   downloadLink: (versionId: string) =>
     request<{ url: string }>("GET", `/api/v1/documents/versions/${versionId}/download`),
   updateDocument: (

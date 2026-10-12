@@ -17,6 +17,11 @@ export type VersionQuarantined = DomainEvent<
   "documents.VersionQuarantined",
   OnVersion & { signature: string }
 >;
+export type VersionAccepted = DomainEvent<"documents.VersionAccepted", OnVersion>;
+export type VersionRejected = DomainEvent<
+  "documents.VersionRejected",
+  OnVersion & { note: string }
+>;
 export type DocumentUpdated = DomainEvent<
   "documents.DocumentUpdated",
   OnCase & { visibility?: "client" | "firm"; expiresOn?: string | null }
@@ -27,4 +32,10 @@ export type ExpiryFlagged = DomainEvent<
 >;
 
 export type DocumentsEvent =
-  VersionUploaded | VersionReleased | VersionQuarantined | DocumentUpdated | ExpiryFlagged;
+  | VersionUploaded
+  | VersionReleased
+  | VersionQuarantined
+  | VersionAccepted
+  | VersionRejected
+  | DocumentUpdated
+  | ExpiryFlagged;

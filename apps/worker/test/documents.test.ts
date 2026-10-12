@@ -13,6 +13,7 @@ import {
   flagExpiringDocuments,
   listCaseDocuments,
   requestUpload,
+  reviewDocument,
   scanUploadedVersion,
   type Scanner,
 } from "@kleidi/modules/documents";
@@ -141,12 +142,40 @@ describe.skipIf(!process.env.DATABASE_URL || !process.env.DATABASE_ADMIN_URL)(
       const docs = await listCaseDocuments(db, ctx.firm.firmId, caseId);
       const dd = docs.stages.find((s) => s.key === "due_diligence")!;
       const state = (key: string) => dd.items.find((i) => i.requirementKey === key)!.state;
-      expect(state("title_deed")).toBe("ready");
+      // A clean file waits for a lawyer before its item counts as done.
+      expect(state("title_deed")).toBe("review");
       expect(state("planning_zone")).toBe("infected");
       // Items needing attention sit above finished ones.
       expect(dd.items.findIndex((i) => i.requirementKey === "planning_zone")).toBeLessThan(
         dd.items.findIndex((i) => i.requirementKey === "title_deed"),
       );
+    });
+
+    it("needs a lawyer to accept a clean file, and a reason to reject one", async () => {
+      const doc = await upload("developer", "Company search for the developer.");
+      await scanUploadedVersion(db, store, scanner, await uploadedEvent(doc.link.versionId));
+      const state = async () =>
+        (await listCaseDocuments(db, ctx.firm.firmId, caseId)).stages
+          .flatMap((s) => s.items)
+          .find((i) => i.requirementKey === "developer")!.state;
+      expect(await state()).toBe("review");
+
+      const staff = { ...ctx, firm: { ...ctx.firm, role: "staff" as const } };
+      await expect(
+        reviewDocument(db, { ...staff, versionId: doc.link.versionId, decision: "accepted" }),
+      ).rejects.toThrow(/Only lawyers/);
+      await expect(
+        reviewDocument(db, { ...ctx, versionId: doc.link.versionId, decision: "rejected" }),
+      ).rejects.toThrow(/why/);
+      await reviewDocument(db, {
+        ...ctx,
+        versionId: doc.link.versionId,
+        decision: "rejected",
+        note: "Search is for the wrong company",
+      });
+      expect(await state()).toBe("rejected");
+      await reviewDocument(db, { ...ctx, versionId: doc.link.versionId, decision: "accepted" });
+      expect(await state()).toBe("ready");
     });
 
     it("keeps every version and scans each one", async () => {

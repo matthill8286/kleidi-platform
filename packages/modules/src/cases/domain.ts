@@ -11,7 +11,8 @@ export type Command =
   | { kind: "stepBack"; reason: string }
   | { kind: "hold"; reason: string }
   | { kind: "resume" }
-  | { kind: "cancel"; reason: string };
+  | { kind: "cancel"; reason: string }
+  | { kind: "reopen"; reason: string };
 
 /** Why a command was refused: a translation key for the web app, and English text. */
 export type Refusal = {
@@ -34,7 +35,9 @@ const hasReason = (r: string) => r.trim().length >= MIN_REASON;
 /**
  * The case state machine. Stages come from the jurisdiction template, in order; the last
  * stage completes the case. A case moves one stage at a time: forward freely, back only
- * with a reason. Held, completed and cancelled cases do not move.
+ * with a reason. Held, completed and cancelled cases do not move. A closed case only
+ * changes by being reopened, with a reason: a completed one goes back to its last working
+ * stage, a cancelled one opens where it stopped.
  */
 export function decide(stages: readonly string[], state: CaseState, command: Command): Decision {
   const index = stages.indexOf(state.stageKey);
@@ -77,6 +80,16 @@ export function decide(stages: readonly string[], state: CaseState, command: Com
       }
       if (!hasReason(command.reason)) return no("reasonCancel", "Give a reason for cancelling");
       return { ok: true, change: "status", next: { ...state, status: "cancelled" } };
+    }
+    case "reopen": {
+      if (state.status !== "completed" && state.status !== "cancelled") {
+        return no("onlyClosedReopen", "Only a completed or cancelled case can be reopened");
+      }
+      if (!hasReason(command.reason)) return no("reasonReopen", "Give a reason for reopening");
+      if (state.status === "cancelled") {
+        return { ok: true, change: "status", next: { ...state, status: "open" } };
+      }
+      return { ok: true, change: "stage", next: { stageKey: stages[last - 1]!, status: "open" } };
     }
   }
 }
