@@ -120,7 +120,10 @@ export const portalRoutes: FastifyPluginAsyncZod<Deps> = async (app, deps) => {
       schema: { body: z.object({ email: z.email() }) },
     },
     async (request, reply) => {
-      await requestSignInLink(db, notifier, { email: request.body.email, appUrl: webOrigin });
+      // Answer at once, known address or not, so the response time reveals nothing.
+      void requestSignInLink(db, notifier, { email: request.body.email, appUrl: webOrigin }).catch(
+        (error: unknown) => request.log.error(error),
+      );
       return reply.code(204).send();
     },
   );
@@ -307,6 +310,7 @@ export const portalRoutes: FastifyPluginAsyncZod<Deps> = async (app, deps) => {
         firmId: s.firmId,
         caseId: s.caseId,
         partyId: s.partyId,
+        partyName: s.partyName,
         versionId: request.params.versionId,
       });
     },

@@ -28,6 +28,7 @@ export type TemplateData = {
     link: string;
   };
   "portal-sign-in": { firmName: string; link: string };
+  "verify-email": { name: string; link: string };
   "portal-code": { code: string };
   "daily-digest": {
     name: string;
@@ -141,6 +142,20 @@ const TEMPLATES: { [K in TemplateName]: Copy<TemplateData[K]> } = {
     ru: (d) => ({
       subject: `Ссылка для входа: ${d.firmName}`,
       text: `Открыть дело: ${d.link}\n\nСсылка действует 30 минут. Если вы её не запрашивали, просто проигнорируйте письмо.`,
+    }),
+  },
+  "verify-email": {
+    en: (d) => ({
+      subject: "Confirm your email for Kleidi",
+      text: `Hello ${d.name},\n\nConfirm your email address to finish setting up your Kleidi account: ${d.link}\n\nIf you did not sign up, you can ignore this email.`,
+    }),
+    el: (d) => ({
+      subject: "Επιβεβαιώστε το email σας για το Kleidi",
+      text: `Γεια σας ${d.name},\n\nΕπιβεβαιώστε τη διεύθυνση email σας για να ολοκληρώσετε τον λογαριασμό σας στο Kleidi: ${d.link}\n\nΑν δεν κάνατε εγγραφή, αγνοήστε αυτό το email.`,
+    }),
+    ru: (d) => ({
+      subject: "Подтвердите email для Kleidi",
+      text: `Здравствуйте, ${d.name}!\n\nПодтвердите адрес email, чтобы завершить настройку аккаунта Kleidi: ${d.link}\n\nЕсли вы не регистрировались, просто проигнорируйте письмо.`,
     }),
   },
   "portal-code": {

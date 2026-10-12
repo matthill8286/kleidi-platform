@@ -1,0 +1,2 @@
+ALTER TABLE "documents" ADD COLUMN "created_by_party_id" uuid;--> statement-breakpoint
+ALTER TABLE "documents" ADD CONSTRAINT "documents_created_by_party_id_case_parties_id_fk" FOREIGN KEY ("created_by_party_id") REFERENCES "public"."case_parties"("id") ON DELETE no action ON UPDATE no action;

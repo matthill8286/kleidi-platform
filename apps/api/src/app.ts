@@ -4,7 +4,7 @@ import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
 import fastifyStatic from "@fastify/static";
 import swagger from "@fastify/swagger";
-import Fastify from "fastify";
+import Fastify, { type FastifyServerOptions } from "fastify";
 import {
   jsonSchemaTransform,
   serializerCompiler,
@@ -37,28 +37,69 @@ export type AppDeps = {
   notifier: Notifier;
   // Production serves over HTTPS, so cookies there are Secure.
   secureCookies?: boolean;
+  // Where browsers upload and download files; the page may connect there as well as to itself.
+  storageOrigin?: string | undefined;
+  // Requests per minute per client address. Raised only for load tests.
+  rateLimitPerMinute?: number;
+  // How many proxies sit in front of the API. Only their forwarded address is believed, so a
+  // client cannot dodge rate limits by sending its own X-Forwarded-For header.
+  trustedProxies?: number;
+  // Production hides the API description.
+  production?: boolean;
+  firmCreators?: string[] | undefined;
   webOrigin: string;
   webDist?: string | undefined;
   logger?: boolean;
 };
 
 export async function buildApp(deps: AppDeps) {
-  const app = Fastify({ logger: deps.logger ?? false, trustProxy: true });
+  const options: FastifyServerOptions = {
+    // Believe only as many forwarding hops as there are proxies in front of us.
+    trustProxy: (_address: string, hop: number) => hop < (deps.trustedProxies ?? 0),
+    logger: deps.logger
+      ? {
+          serializers: {
+            // Sign-in and invitation links carry secrets in the path; keep them out of logs.
+            req: (req: { method: string; url: string }) => ({
+              method: req.method,
+              url: req.url.replace(/\/(link|invitations|invite)\/[^/?]+/g, "/$1/[redacted]"),
+            }),
+          },
+        }
+      : false,
+  };
+  const app = Fastify(options);
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
   registerErrorHandler(app);
 
   await app.register(helmet, {
     contentSecurityPolicy: {
-      directives: { defaultSrc: ["'self'"], frameAncestors: ["'none'"], objectSrc: ["'none'"] },
+      directives: {
+        defaultSrc: ["'self'"],
+        connectSrc: ["'self'", ...(deps.storageOrigin ? [deps.storageOrigin] : [])],
+        fontSrc: ["'self'"],
+        // React sets inline style attributes; no external stylesheets are allowed.
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:"],
+        frameAncestors: ["'none'"],
+        objectSrc: ["'none'"],
+      },
     },
+  });
+  // The app never uses these browser features, so pages may not ask for them.
+  app.addHook("onSend", async (_request, reply) => {
+    reply.header(
+      "permissions-policy",
+      "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+    );
   });
   await app.register(cors, {
     origin: deps.webOrigin,
     credentials: true,
     exposedHeaders: ["etag", "location", "idempotent-replayed"],
   });
-  await app.register(rateLimit, { max: 300, timeWindow: "1 minute" });
+  await app.register(rateLimit, { max: deps.rateLimitPerMinute ?? 300, timeWindow: "1 minute" });
   await app.register(cookie);
   await app.register(swagger, {
     openapi: { info: { title: "Kleidi API", version: "0.1.0" } },
@@ -71,7 +112,12 @@ export async function buildApp(deps: AppDeps) {
   await typed.register(healthRoutes, { db: deps.db });
   await typed.register(jurisdictionRoutes, { db: deps.db, prefix: "/api/v1" });
   await typed.register(meRoutes, { db: deps.db, ctx, prefix: "/api/v1" });
-  await typed.register(firmRoutes, { db: deps.db, ctx, prefix: "/api/v1" });
+  await typed.register(firmRoutes, {
+    db: deps.db,
+    ctx,
+    firmCreators: deps.firmCreators,
+    prefix: "/api/v1",
+  });
   await typed.register(invitationRoutes, { db: deps.db, ctx, prefix: "/api/v1" });
   const idempotent = createIdempotency(deps.db);
   await typed.register(caseRoutes, { db: deps.db, ctx, idempotent, prefix: "/api/v1" });
@@ -98,11 +144,21 @@ export async function buildApp(deps: AppDeps) {
     idempotent,
     prefix: "/api/v1",
   });
-  app.get("/openapi.json", { schema: { hide: true } }, () => app.swagger());
+  if (!deps.production) app.get("/openapi.json", { schema: { hide: true } }, () => app.swagger());
 
   // In production the API container also serves the built React app.
   if (deps.webDist) {
-    await app.register(fastifyStatic, { root: deps.webDist });
+    // Built files have content hashes in their names, so browsers may keep them for a year.
+    // index.html is checked on every visit, so a release reaches users at once.
+    await app.register(fastifyStatic, {
+      root: deps.webDist,
+      cacheControl: false,
+      setHeaders: (res, path) =>
+        res.setHeader(
+          "cache-control",
+          path.includes("/assets/") ? "public, max-age=31536000, immutable" : "no-cache",
+        ),
+    });
     app.setNotFoundHandler((request, reply) =>
       request.url.startsWith("/api/")
         ? reply

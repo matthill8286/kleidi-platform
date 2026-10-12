@@ -15,8 +15,12 @@ export async function loadMe(queryClient: QueryClient): Promise<Me | null> {
 
 /** Accepts only same-site paths, so a crafted link cannot send users elsewhere after sign-in. */
 export function safeRedirect(value: unknown): string | undefined {
-  return typeof value === "string" && value.startsWith("/") && !value.startsWith("//")
-    ? value
+  if (typeof value !== "string" || !value.startsWith("/") || value.includes("\\")) return undefined;
+  if ([...value].some((c) => c.charCodeAt(0) < 32)) return undefined;
+  // Whatever the path looks like, it must resolve to this site.
+  const url = new URL(value, window.location.origin);
+  return url.origin === window.location.origin
+    ? `${url.pathname}${url.search}${url.hash}`
     : undefined;
 }
 

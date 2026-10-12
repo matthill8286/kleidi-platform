@@ -5,10 +5,12 @@ export {
   listPortalAccess,
   requestSignInLink,
   revokeAccess,
+  revokeAccessForParty,
   sessionFromToken,
   setClientLocale,
   signOutClient,
   startLink,
+  syncPartyContact,
   verifyLink,
   type PortalSession,
 } from "./application.ts";

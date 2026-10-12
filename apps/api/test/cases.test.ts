@@ -5,7 +5,14 @@ import { createDb, relayOutbox } from "@kleidi/db";
 import { recordAuditFromEvent } from "@kleidi/modules/audit";
 import { createAuth } from "@kleidi/modules/identity";
 import { buildApp } from "../src/app.ts";
-import { enrolledUser, TEST_SECRET, WEB_ORIGIN, testStore, testNotifier } from "./helpers.ts";
+import {
+  enrolledUser,
+  TEST_SECRET,
+  WEB_ORIGIN,
+  testStore,
+  testNotifier,
+  sendVerificationEmail,
+} from "./helpers.ts";
 
 const NEW_CASE = {
   propertyAddress: "12 Anexartisias, Limassol 3036",
@@ -28,6 +35,7 @@ describe.skipIf(!process.env.DATABASE_URL)("cases", () => {
       baseURL: WEB_ORIGIN,
       secret: TEST_SECRET,
       trustedOrigins: [WEB_ORIGIN],
+      sendVerificationEmail,
     });
     app = await buildApp({
       db,

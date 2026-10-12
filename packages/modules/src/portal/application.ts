@@ -1,4 +1,4 @@
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, gt, isNull, lt, sql } from "drizzle-orm";
 import { publishEvents, withFirm, type Db } from "@kleidi/db";
 import { portalAccess, portalLinks, portalSessions } from "@kleidi/db/schema/portal";
 import { AppError, systemClock, type Clock } from "@kleidi/kernel";
@@ -6,7 +6,7 @@ import { findCase, findPartiesByIds, getCase } from "../cases/index.ts";
 import { listConsents } from "../consent/index.ts";
 import { listClientDocuments } from "../documents/index.ts";
 import { getFirmName, listFirmIds, type Actor, type FirmContext } from "../firms/index.ts";
-import { findUsersByIds, normalisePhone } from "../identity/index.ts";
+import { findUsersByIds, normalisePhone, smsAllowed } from "../identity/index.ts";
 import { asLocale, deliver, type Locale, type Notifier } from "../notifications/index.ts";
 import {
   codeExpiry,
@@ -80,7 +80,7 @@ export async function inviteClient(
       });
     }
     const [party] = await findPartiesByIds(tx, [input.partyId]);
-    if (!party || party.caseId !== c.id)
+    if (!party || party.caseId !== c.id || party.removedAt)
       throw new AppError("not_found", "Party not found", "partyNotFound");
     const phone = party.phone ? normalisePhone(party.phone) : null;
     if (!party.email || !phone) {
@@ -88,6 +88,13 @@ export async function inviteClient(
         "invalid",
         "Add the client's email and mobile number first",
         "clientContactNeeded",
+      );
+    }
+    if (!smsAllowed(phone)) {
+      throw new AppError(
+        "invalid",
+        "Kleidi cannot send texts to this country yet",
+        "smsCountryBlocked",
       );
     }
     const [access] = await tx
@@ -122,6 +129,8 @@ export async function inviteClient(
     return { access: access!, reference: c.reference };
   });
 
+  // A new invitation replaces any earlier link, so only the latest email works.
+  await closeOpenDoors(db, access.id, clock);
   const { token, linkId } = await createLink(db, input.firm.firmId, access.id, "invite", clock);
   await deliver(db, notifier, {
     firmId: input.firm.firmId,
@@ -178,10 +187,7 @@ export async function revokeAccess(
       },
     ]);
   });
-  await db
-    .update(portalSessions)
-    .set({ revokedAt: clock.now() })
-    .where(and(eq(portalSessions.accessId, input.accessId), isNull(portalSessions.revokedAt)));
+  await closeOpenDoors(db, input.accessId, clock);
 }
 
 /**
@@ -203,6 +209,20 @@ export async function requestSignInLink(
         .where(and(eq(portalAccess.email, email), isNull(portalAccess.revokedAt))),
     );
     for (const access of accesses) {
+      // One sign-in email per client every two minutes, however often the form is sent.
+      const [recent] = await db
+        .select({ id: portalLinks.id })
+        .from(portalLinks)
+        .where(
+          and(
+            eq(portalLinks.accessId, access.id),
+            gt(portalLinks.createdAt, new Date(clock.now().getTime() - 2 * 60 * 1000)),
+            // Sign-in links are the short-lived ones; an invitation does not count.
+            lt(portalLinks.expiresAt, new Date(clock.now().getTime() + 60 * 60 * 1000)),
+          ),
+        )
+        .limit(1);
+      if (recent) continue;
       const { token, linkId } = await createLink(db, firmId, access.id, "sign-in", clock);
       await deliver(db, notifier, {
         firmId,
@@ -361,6 +381,8 @@ export async function sessionFromToken(
   const [party] = await withFirm(db, session.firmId, (tx) =>
     findPartiesByIds(tx, [access.partyId]),
   );
+  // A party taken off the case cannot keep using an old session.
+  if (!party || party.removedAt) return null;
   return {
     sessionId: session.id,
     firmId: access.firmId,
@@ -439,4 +461,60 @@ export async function getClientCase(db: Db, session: PortalSession) {
       partyId: session.partyId,
     }),
   };
+}
+
+/** Spends every unused sign-in link for an access, and ends its sessions. */
+async function closeOpenDoors(db: Db, accessId: string, clock: Clock) {
+  const now = clock.now();
+  await db
+    .update(portalLinks)
+    .set({ usedAt: now })
+    .where(and(eq(portalLinks.accessId, accessId), isNull(portalLinks.usedAt)));
+  await db
+    .update(portalSessions)
+    .set({ revokedAt: now })
+    .where(and(eq(portalSessions.accessId, accessId), isNull(portalSessions.revokedAt)));
+}
+
+/** A removed party loses portal access at once. */
+export async function revokeAccessForParty(
+  db: Db,
+  firmId: string,
+  partyId: string,
+  clock: Clock = systemClock,
+) {
+  const [access] = await withFirm(db, firmId, (tx) =>
+    tx
+      .update(portalAccess)
+      .set({ revokedAt: clock.now() })
+      .where(and(eq(portalAccess.partyId, partyId), isNull(portalAccess.revokedAt)))
+      .returning({ id: portalAccess.id }),
+  );
+  if (access) await closeOpenDoors(db, access.id, clock);
+}
+
+/**
+ * After a party's email or phone changes, the portal must not keep using the old ones: old
+ * links and sessions end, and the client signs in again with the new details.
+ */
+export async function syncPartyContact(
+  db: Db,
+  firmId: string,
+  partyId: string,
+  clock: Clock = systemClock,
+) {
+  const changed = await withFirm(db, firmId, async (tx) => {
+    const [access] = await tx.select().from(portalAccess).where(eq(portalAccess.partyId, partyId));
+    if (!access || access.revokedAt) return null;
+    const [party] = await findPartiesByIds(tx, [partyId]);
+    const email = party?.email?.toLowerCase() ?? null;
+    const phone = party?.phone ? normalisePhone(party.phone) : null;
+    if (email === access.email && phone === access.phone) return null;
+    await tx
+      .update(portalAccess)
+      .set(email && phone ? { email, phone } : { revokedAt: clock.now() })
+      .where(eq(portalAccess.id, access.id));
+    return access.id;
+  });
+  if (changed) await closeOpenDoors(db, changed, clock);
 }

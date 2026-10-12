@@ -13,6 +13,8 @@ import {
   WEB_ORIGIN,
   testStore,
   testNotifier,
+  sendVerificationEmail,
+  verifyEmail,
 } from "./helpers.ts";
 
 // Integration: the full identity and firm journey against the local Postgres.
@@ -29,6 +31,7 @@ describe.skipIf(!process.env.DATABASE_URL || !process.env.DATABASE_ADMIN_URL)(
         baseURL: WEB_ORIGIN,
         secret: TEST_SECRET,
         trustedOrigins: [WEB_ORIGIN],
+        sendVerificationEmail,
       });
       app = await buildApp({
         db,
@@ -51,11 +54,20 @@ describe.skipIf(!process.env.DATABASE_URL || !process.env.DATABASE_ADMIN_URL)(
 
     it("blocks firm actions until two-factor sign-in is set up", async () => {
       const c = client(app);
+      const email = uniqueEmail("new");
       await c.post("/api/auth/sign-up/email", {
         name: "New Lawyer",
-        email: uniqueEmail("new"),
+        email,
         password: TEST_PASSWORD,
       });
+      // No session until the address is confirmed.
+      expect((await c.get("/api/v1/me")).statusCode).toBe(401);
+      const signIn = await client(app).post("/api/auth/sign-in/email", {
+        email,
+        password: TEST_PASSWORD,
+      });
+      expect(signIn.statusCode).toBe(403);
+      await verifyEmail(c, email);
       const me = await c.get("/api/v1/me");
       expect(me.statusCode).toBe(200);
       expect(me.json()).toMatchObject({ user: { twoFactorEnabled: false }, firms: [] });
@@ -135,6 +147,15 @@ describe.skipIf(!process.env.DATABASE_URL || !process.env.DATABASE_ADMIN_URL)(
         role: "staff",
       });
       expect(notAdmin.statusCode).toBe(403);
+
+      // Only an admin removes people, the last admin stays, and removal ends access at once.
+      const colleagueId = (await colleague.c.get("/api/v1/me")).json().user.id;
+      const ownerId = team.members.find((m: { email: string }) => m.email === owner.email).userId;
+      expect((await colleague.c.delete(`/api/v1/team/members/${ownerId}`)).statusCode).toBe(403);
+      const lastAdmin = await owner.c.delete(`/api/v1/team/members/${ownerId}`);
+      expect(lastAdmin.json().messageKey).toBe("lastAdmin");
+      expect((await owner.c.delete(`/api/v1/team/members/${colleagueId}`)).statusCode).toBe(204);
+      expect((await colleague.c.get("/api/v1/team")).statusCode).toBe(403);
 
       stranger.c.useFirm(firmId);
       const outsider = await stranger.c.get("/api/v1/team");

@@ -218,7 +218,9 @@ export async function listDeadlines(
       .select()
       .from(deadlines)
       .where(where.length ? and(...where) : undefined)
-      .orderBy(asc(deadlines.dueAt));
+      .orderBy(asc(deadlines.dueAt))
+      // A firm's deadline list stays bounded; finished ones beyond this are history.
+      .limit(500);
     const caseRows = await findCasesByIds(tx, [...new Set(rows.map((r) => r.caseId))]);
     return { rows, caseRows };
   });

@@ -47,6 +47,8 @@ export const documents = pgTable(
     latestVersion: integer("latest_version").notNull().default(0),
     // The lawyer asked the client for this; it shows in the client's portal.
     requestedFromClient: boolean("requested_from_client").notNull().default(false),
+    // The client who started this document through the portal; only they see it there.
+    createdByPartyId: uuid("created_by_party_id").references(() => caseParties.id),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },

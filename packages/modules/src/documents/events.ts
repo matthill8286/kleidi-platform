@@ -23,6 +23,7 @@ export type VersionQuarantined = DomainEvent<
   "documents.VersionQuarantined",
   OnVersion & { signature: string }
 >;
+export type VersionDownloaded = DomainEvent<"documents.VersionDownloaded", OnVersion>;
 export type VersionAccepted = DomainEvent<"documents.VersionAccepted", OnVersion>;
 export type VersionRejected = DomainEvent<
   "documents.VersionRejected",
@@ -46,6 +47,7 @@ export type DocumentsEvent =
   | VersionReleased
   | VersionQuarantined
   | VersionAccepted
+  | VersionDownloaded
   | VersionRejected
   | DocumentUpdated
   | ClientRequestChanged

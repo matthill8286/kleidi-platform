@@ -3,6 +3,7 @@ export {
   findUsersByIds,
   LOCALES,
   normalisePhone,
+  smsAllowed,
   updateProfile,
   type UserLocale,
   type UserSummary,

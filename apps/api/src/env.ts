@@ -6,6 +6,11 @@ const Env = z.object({
   API_PORT: z.coerce.number().int().default(4100),
   WEB_ORIGIN: z.string().url().default("http://localhost:5180"),
   WEB_DIST: z.string().optional(),
+  RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(300),
+  // Scaleway Serverless Containers sit behind one proxy.
+  TRUSTED_PROXIES: z.coerce.number().int().min(0).default(0),
+  // Comma-separated emails allowed to create a firm. Unset means anyone may (local only).
+  FIRM_CREATORS: z.string().optional(),
   BETTER_AUTH_SECRET: z.string().min(32, "BETTER_AUTH_SECRET must be at least 32 characters"),
   S3_ENDPOINT: z.string().url(),
   // The host browsers use for signed links; locally the Vite proxy forwards it to storage.

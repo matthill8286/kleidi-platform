@@ -263,6 +263,7 @@ export const api = {
   createFirm: (name: string) =>
     request<{ id: string; name: string }>("POST", "/api/v1/firms", { name }),
   team: () => request<Team>("GET", "/api/v1/team"),
+  removeMember: (userId: string) => request<void>("DELETE", `/api/v1/team/members/${userId}`),
   invite: (email: string, role: Role) =>
     request<Team["invitations"][number]>("POST", "/api/v1/team/invitations", { email, role }),
   previewInvitation: (token: string) =>
@@ -300,6 +301,10 @@ export const api = {
     partyId: string,
     body: { email?: string | null; phone?: string | null },
   ) => request<void>("PATCH", `/api/v1/cases/${caseId}/parties/${partyId}`, body),
+  removeParty: (caseId: string, version: number, partyId: string) =>
+    request<CaseDetail>("DELETE", `/api/v1/cases/${caseId}/parties/${partyId}`, undefined, {
+      "if-match": `"v${version}"`,
+    }),
   portalAccess: (caseId: string) =>
     request<PortalAccess[]>("GET", `/api/v1/cases/${caseId}/portal`),
   invitePortal: (caseId: string, partyId: string, locale: string) =>

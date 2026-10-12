@@ -61,7 +61,8 @@ export function client(app: FastifyInstance) {
     post: (url: string, body: unknown = {}, headers?: Record<string, string>) =>
       call("POST", url, body, headers),
     patch: (url: string, body: unknown = {}) => call("PATCH", url, body),
-    delete: (url: string) => call("DELETE", url),
+    delete: (url: string, headers?: Record<string, string>) =>
+      call("DELETE", url, undefined, headers),
     useFirm: (id: string) => {
       firmId = id;
     },
@@ -77,6 +78,7 @@ export async function enrolledUser(app: FastifyInstance, name: string, email = u
   const signUp = await c.post("/api/auth/sign-up/email", { name, email, password: TEST_PASSWORD });
   if (signUp.statusCode !== 200)
     throw new Error(`sign-up failed: ${signUp.statusCode} ${signUp.body}`);
+  await verifyEmail(c, email);
   const enable = await c.post("/api/auth/two-factor/enable", { password: TEST_PASSWORD });
   if (enable.statusCode !== 200)
     throw new Error(`2FA enable failed: ${enable.statusCode} ${enable.body}`);
@@ -106,3 +108,29 @@ export const testNotifier = (): Notifier => ({
     return { providerId: randomUUID() };
   },
 });
+
+/** Captures verification emails like any other message, so tests can follow the link. */
+export const sendVerificationEmail = async (m: {
+  to: string;
+  name: string;
+  locale: string;
+  url: string;
+}) => {
+  sentMessages.push({
+    channel: "email",
+    to: m.to,
+    template: "verify-email",
+    locale: "en",
+    data: { name: m.name, link: m.url },
+  });
+};
+
+/** Opens the newest verification link sent to this address, signing the browser in. */
+export async function verifyEmail(c: ReturnType<typeof client>, email: string) {
+  const message = sentMessages
+    .filter((m) => m.template === "verify-email" && m.to === email)
+    .at(-1);
+  if (!message) throw new Error(`no verification email for ${email}`);
+  const url = new URL((message.data as { link: string }).link);
+  return c.get(`${url.pathname}${url.search}`);
+}

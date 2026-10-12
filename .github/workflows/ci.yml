@@ -51,3 +51,12 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+
+  # The production images must keep building; the worker is left out because its build
+  # downloads virus signatures, which the ClamAV mirrors rate-limit.
+  images:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build --target api -t kleidi-api .
+      - run: docker build --target migrate -t kleidi-migrate .

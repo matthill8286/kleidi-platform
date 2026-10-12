@@ -49,7 +49,8 @@ export function createContext(deps: { db: Db; auth: Auth }) {
   ): Promise<{ user: SessionUser; firm: FirmContext }> {
     const user = await requireUser(request);
     const firmId = request.headers[FIRM_HEADER];
-    if (typeof firmId !== "string" || !/^[0-9a-f-]{36}$/i.test(firmId)) {
+    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (typeof firmId !== "string" || !uuid.test(firmId)) {
       throw new AppError("invalid", `Send the firm id in the ${FIRM_HEADER} header`);
     }
     const role = await getMembership(deps.db, user.userId, firmId);

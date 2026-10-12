@@ -5,6 +5,7 @@ import type { Db } from "@kleidi/db";
 import { AppError } from "@kleidi/kernel";
 import { listForEntity } from "@kleidi/modules/audit";
 import { outstandingForCurrentStage } from "@kleidi/modules/documents";
+import { revokeAccessForParty } from "@kleidi/modules/portal";
 import {
   addParty,
   CASE_STATUSES,
@@ -13,6 +14,7 @@ import {
   openCase,
   PARTY_ROLES,
   PROPERTY_TYPES,
+  removeParty,
   transitionCase,
 } from "@kleidi/modules/cases";
 import type { Context } from "../plugins/context.ts";
@@ -229,6 +231,31 @@ export const caseRoutes: FastifyPluginAsyncZod<{
         });
         return detail(firm.firmId, request.params.id);
       });
+    },
+  );
+
+  app.delete(
+    "/cases/:id/parties/:partyId",
+    {
+      schema: {
+        params: z.object({ id: z.uuid(), partyId: z.uuid() }),
+        response: { 200: CaseDetail },
+      },
+    },
+    async (request, reply) => {
+      const { user, firm } = await ctx.requireFirm(request);
+      const version = expectedVersion(request);
+      await removeParty(db, {
+        firm,
+        actor: user,
+        caseId: request.params.id,
+        partyId: request.params.partyId,
+        expectedVersion: version,
+      });
+      // A removed party loses portal access straight away.
+      await revokeAccessForParty(db, firm.firmId, request.params.partyId);
+      const result = await detail(firm.firmId, request.params.id);
+      return reply.headers(result.headers).send(result.body);
     },
   );
 };

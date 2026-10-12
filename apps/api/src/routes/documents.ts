@@ -219,8 +219,8 @@ export const documentRoutes: FastifyPluginAsyncZod<{
       },
     },
     async (request) => {
-      const { firm } = await ctx.requireFirm(request);
-      return downloadLink(db, store, firm.firmId, request.params.versionId);
+      const { user, firm } = await ctx.requireFirm(request);
+      return downloadLink(db, store, firm.firmId, request.params.versionId, user.userId);
     },
   );
 

@@ -51,6 +51,12 @@ describe.skipIf(!process.env.DATABASE_URL || !process.env.DATABASE_ADMIN_URL)(
       let relayed = 0;
       for (let i = 0; i < 10; i++) {
         const n = await relayToConsumers(db, consumers, async (consumer, event) => {
+          // Other test files share this database: their events only go to the audit trail,
+          // which they check, and nowhere else.
+          if (event.firmId !== firm.id) {
+            if (consumer.name === "audit") await consumer.handle(event);
+            return;
+          }
           delivered.push(event);
           await consumer.handle(event);
           await consumer.handle(event);

@@ -16,17 +16,20 @@ export function PartyRow({
   access,
   closed,
   onChanged,
+  onRemove,
 }: {
   caseId: string;
   party: Party;
   access: PortalAccess | undefined;
   closed: boolean;
   onChanged: () => Promise<unknown>;
+  // Removes the party from the case; their history stays on record.
+  onRemove: () => Promise<unknown>;
 }) {
   const { t, i18n } = useTranslation();
   const errorText = useErrorText();
   const queryClient = useQueryClient();
-  const [mode, setMode] = useState<"view" | "edit" | "invite">("view");
+  const [mode, setMode] = useState<"view" | "edit" | "invite" | "remove">("view");
   const after = async () => {
     await onChanged();
     await queryClient.invalidateQueries({ queryKey: ["case", caseId, "portal"] });
@@ -43,6 +46,7 @@ export function PartyRow({
     onSuccess: after,
   });
   const revoke = useMutation({ mutationFn: () => api.revokePortal(access!.id), onSuccess: after });
+  const remove = useMutation({ mutationFn: onRemove, onSuccess: after });
 
   const active = access && !access.revokedAt;
   const reachable = Boolean(party.email && party.phone);
@@ -93,6 +97,9 @@ export function PartyRow({
               {active ? t("portal.firm.reinvite") : t("portal.firm.invite")}
             </button>
           )}
+          <button className="btn quiet small danger" onClick={() => setMode("remove")}>
+            {t("portal.firm.removeParty")}
+          </button>
           {active && (
             <button
               className="btn quiet small danger"
@@ -156,6 +163,24 @@ export function PartyRow({
             </button>
           </div>
         </form>
+      )}
+      {mode === "remove" && (
+        <div className="reason">
+          <p style={{ margin: 0 }}>{t("portal.firm.removeConfirm", { name: party.fullName })}</p>
+          <ErrorAlert message={errorText(remove.error)} />
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+            <button type="button" className="btn quiet" onClick={() => setMode("view")}>
+              {t("common.cancel")}
+            </button>
+            <button
+              className="btn danger-fill"
+              disabled={remove.isPending}
+              onClick={() => remove.mutate()}
+            >
+              {t("portal.firm.removeParty")}
+            </button>
+          </div>
+        </div>
       )}
       <ErrorAlert message={errorText(revoke.error)} />
     </div>

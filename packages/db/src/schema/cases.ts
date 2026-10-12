@@ -60,6 +60,9 @@ export const caseParties = pgTable(
     email: text("email"),
     phone: text("phone"),
     userId: uuid("user_id").references(() => users.id),
+    // Removed parties stay on record, so files they sent and the audit trail keep their name.
+    removedAt: timestamp("removed_at", { withTimezone: true }),
+    removedById: uuid("removed_by_id").references(() => users.id),
   },
   (t) => [index("case_parties_case").on(t.caseId)],
 );

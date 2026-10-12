@@ -22,6 +22,7 @@ import type {
   ExpiryFlagged,
   ClientRequestChanged,
   VersionAccepted,
+  VersionDownloaded,
   VersionQuarantined,
   VersionRejected,
   VersionReleased,
@@ -72,8 +73,8 @@ async function targetDocument(
   caseId: string,
   jurisdiction: string,
   target: UploadTarget,
-  // A document a client starts is theirs to see.
-  visibility: "client" | "firm" = "firm",
+  // Set when a client starts the document; the portal then shows it to that client only.
+  createdByPartyId: string | null = null,
 ) {
   if ("documentId" in target) {
     const [doc] = await tx
@@ -101,7 +102,7 @@ async function targetDocument(
   if (title.length < 2) throw new AppError("invalid", "Give the document a title", "documentTitle");
   const [doc] = await tx
     .insert(documents)
-    .values({ firmId, caseId, title, visibility })
+    .values({ firmId, caseId, title, createdByPartyId })
     .returning();
   return doc!;
 }
@@ -141,9 +142,10 @@ export async function requestUpload(
       c.id,
       c.jurisdictionCode,
       input.target,
-      client ? "client" : "firm",
+      client?.partyId ?? null,
     );
-    if (client && !doc.requestedFromClient && doc.visibility !== "client") {
+    // A client adds files only where the lawyer asked, or to a document they started.
+    if (client && !doc.requestedFromClient && doc.createdByPartyId !== client.partyId) {
       throw new AppError("not_found", "Document not found", "documentNotFound");
     }
     const version = doc.latestVersion + 1;
@@ -292,13 +294,14 @@ export async function scanUploadedVersion(
       // A retry after the move succeeded but the commit failed finds the file already released.
       const alreadyReleased =
         (await store.size(v.objectKey)) === null && (await store.size(target)) !== null;
-      const result = alreadyReleased
-        ? { clean: true as const }
-        : await scanner.scan(await store.read(v.objectKey));
+      const file = alreadyReleased ? null : await store.read(v.objectKey);
+      const result = file ? await scanner.scan(file.body) : { clean: true as const };
       const base = { firmId, actorUserId: null };
 
       if (result.clean) {
-        if (!alreadyReleased) await store.move(v.objectKey, target);
+        // Release exactly the bytes that were scanned: if the file changed meanwhile, the copy
+        // fails and the job retries, scanning the new bytes.
+        if (file) await store.move(v.objectKey, target, file.etag);
         await tx
           .update(documentVersions)
           .set({
@@ -329,14 +332,52 @@ export async function scanUploadedVersion(
 }
 
 /** A five-minute download link. Only scanned, clean files are ever handed out. */
-export async function downloadLink(db: Db, store: ObjectStore, firmId: string, versionId: string) {
+/** Records who opened which file, for the audit trail. */
+async function recordDownload(
+  tx: Tx,
+  firmId: string,
+  d: typeof documents.$inferSelect,
+  v: typeof documentVersions.$inferSelect,
+  by: { actorUserId: string | null; client?: string },
+) {
+  const event: VersionDownloaded = {
+    type: "documents.VersionDownloaded",
+    firmId,
+    actorUserId: by.actorUserId,
+    payload: {
+      entityType: "case",
+      entityId: d.caseId,
+      documentId: d.id,
+      requirementKey: d.requirementKey,
+      title: d.title,
+      versionId: v.id,
+      version: v.version,
+      fileName: v.fileName,
+      ...(by.client ? { client: by.client } : {}),
+    },
+  };
+  await publishEvents(tx, [event]);
+}
+
+/** A five-minute download link. Only scanned, clean files are ever handed out. */
+export async function downloadLink(
+  db: Db,
+  store: ObjectStore,
+  firmId: string,
+  versionId: string,
+  actorUserId: string | null = null,
+) {
   const v = await withFirm(db, firmId, async (tx) => {
     const [row] = await tx
-      .select()
+      .select({ v: documentVersions, d: documents })
       .from(documentVersions)
+      .innerJoin(documents, eq(documents.id, documentVersions.documentId))
       .where(eq(documentVersions.id, versionId))
       .limit(1);
-    return row;
+    if (row && row.v.scanStatus === "clean") {
+      await recordDownload(tx, firmId, row.d, row.v, { actorUserId });
+    }
+    return row?.v;
   });
   if (!v) throw new AppError("not_found", "Document not found", "documentNotFound");
   if (v.scanStatus === "infected")
@@ -760,8 +801,18 @@ export async function setRequestedFromClient(
 }
 
 /**
- * What a client may see of a case's documents: files the lawyer shared with them, and the
- * items the lawyer asked them for, with only their own uploads. Nothing else leaves the firm.
+ * Whether a client may see a file. Their own uploads, yes. Otherwise only files the firm
+ * uploaded to a document it shared with clients: one client never sees another's files.
+ */
+const clientMaySee = (
+  d: { visibility: "client" | "firm" },
+  v: { uploadedByPartyId: string | null },
+  partyId: string,
+) => v.uploadedByPartyId === partyId || (d.visibility === "client" && v.uploadedByPartyId === null);
+
+/**
+ * What a client may see of a case's documents: what the firm shared, what the lawyer asked
+ * for, and what they started themselves, each showing only files they may see.
  */
 export async function listClientDocuments(db: Db, firmId: string, caseId: string, partyId: string) {
   return withFirm(db, firmId, async (tx) => {
@@ -771,7 +822,11 @@ export async function listClientDocuments(db: Db, firmId: string, caseId: string
       .where(
         and(
           eq(documents.caseId, caseId),
-          or(eq(documents.visibility, "client"), eq(documents.requestedFromClient, true)),
+          or(
+            eq(documents.visibility, "client"),
+            eq(documents.requestedFromClient, true),
+            eq(documents.createdByPartyId, partyId),
+          ),
         ),
       );
     const versions = docs.length
@@ -786,32 +841,32 @@ export async function listClientDocuments(db: Db, firmId: string, caseId: string
           )
           .orderBy(desc(documentVersions.version))
       : [];
-    return docs.map((d) => {
-      // A shared document shows its files; a firm-only request shows only the client's own.
+    return docs.flatMap((d) => {
       const visible = versions.filter(
-        (v) =>
-          v.documentId === d.id &&
-          v.scanStatus !== "uploading" &&
-          (d.visibility === "client" || v.uploadedByPartyId === partyId),
+        (v) => v.documentId === d.id && v.scanStatus !== "uploading" && clientMaySee(d, v, partyId),
       );
+      // A shared document with nothing the client may see yet is left out.
+      if (!d.requestedFromClient && d.createdByPartyId !== partyId && visible.length === 0)
+        return [];
       const latest = visible[0] ?? null;
-      return {
-        id: d.id,
-        title: d.title,
-        requirementKey: d.requirementKey,
-        requested: d.requestedFromClient,
-        latest: latest && {
-          id: latest.id,
-          fileName: latest.fileName,
-          createdAt: latest.createdAt,
-          fromYou: latest.uploadedByPartyId === partyId,
-          scanStatus: latest.scanStatus,
-          review: latest.review,
-          // A rejection reason is shown only on the client's own file.
-          reviewNote: latest.uploadedByPartyId === partyId ? latest.reviewNote : null,
-          downloadable: latest.scanStatus === "clean",
+      return [
+        {
+          id: d.id,
+          title: d.title,
+          requirementKey: d.requirementKey,
+          requested: d.requestedFromClient,
+          latest: latest && {
+            id: latest.id,
+            fileName: latest.fileName,
+            createdAt: latest.createdAt,
+            fromYou: latest.uploadedByPartyId === partyId,
+            scanStatus: latest.scanStatus,
+            review: latest.review,
+            reviewNote: latest.uploadedByPartyId === partyId ? latest.reviewNote : null,
+            downloadable: latest.scanStatus === "clean",
+          },
         },
-      };
+      ];
     });
   });
 }
@@ -820,7 +875,7 @@ export async function listClientDocuments(db: Db, firmId: string, caseId: string
 export async function clientDownloadLink(
   db: Db,
   store: ObjectStore,
-  input: { firmId: string; caseId: string; partyId: string; versionId: string },
+  input: { firmId: string; caseId: string; partyId: string; partyName: string; versionId: string },
 ) {
   const row = await withFirm(db, input.firmId, async (tx) => {
     const [r] = await tx
@@ -829,14 +884,18 @@ export async function clientDownloadLink(
       .innerJoin(documents, eq(documents.id, documentVersions.documentId))
       .where(eq(documentVersions.id, input.versionId))
       .limit(1);
+    const allowed =
+      r &&
+      r.d.caseId === input.caseId &&
+      r.v.scanStatus === "clean" &&
+      clientMaySee(r.d, r.v, input.partyId);
+    if (!allowed) return null;
+    await recordDownload(tx, input.firmId, r.d, r.v, {
+      actorUserId: null,
+      client: input.partyName,
+    });
     return r;
   });
-  const allowed =
-    row &&
-    row.d.caseId === input.caseId &&
-    row.v.scanStatus === "clean" &&
-    (row.d.visibility === "client" ||
-      (row.d.requestedFromClient && row.v.uploadedByPartyId === input.partyId));
-  if (!allowed) throw new AppError("not_found", "Document not found", "documentNotFound");
+  if (!row) throw new AppError("not_found", "Document not found", "documentNotFound");
   return { url: await store.signDownload(row.v.objectKey, row.v.fileName, DOWNLOAD_LINK_SECONDS) };
 }

@@ -10,7 +10,7 @@
     "dev": "turbo run dev",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
-    "test": "turbo run test",
+    "test": "turbo run test --concurrency=1",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -19,7 +19,8 @@
     "db:generate": "pnpm --filter @kleidi/db generate",
     "db:migrate": "pnpm --filter @kleidi/db migrate",
     "db:seed": "pnpm --filter @kleidi/db seed",
-    "boundaries": "depcruise apps packages --config .dependency-cruiser.cjs --output-type err"
+    "boundaries": "depcruise apps packages --config .dependency-cruiser.cjs --output-type err",
+    "test:setup": "pnpm --filter @kleidi/db test:setup"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

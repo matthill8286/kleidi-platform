@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { handleOnce, withFirm, type Db } from "@kleidi/db";
 import { auditEvents } from "@kleidi/db/schema/audit";
 import type { StoredEvent } from "@kleidi/kernel";
@@ -49,7 +49,10 @@ export async function listForEntity(db: Db, firmId: string, entityType: string, 
       })
       .from(auditEvents)
       .where(and(eq(auditEvents.entityType, entityType), eq(auditEvents.entityId, entityId)))
-      .orderBy(asc(auditEvents.createdAt), asc(auditEvents.eventPosition));
+      // The newest 500 entries, returned oldest first.
+      .orderBy(desc(auditEvents.createdAt), desc(auditEvents.eventPosition))
+      .limit(500);
+    rows.reverse();
     const actorIds = [...new Set(rows.flatMap((r) => (r.actorUserId ? [r.actorUserId] : [])))];
     const names = new Map((await findUsersByIds(tx, actorIds)).map((u) => [u.id, u.name]));
     return rows.map((r) => ({

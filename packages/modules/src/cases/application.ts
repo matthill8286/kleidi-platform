@@ -18,7 +18,13 @@ import {
   type Command,
   type PropertyType,
 } from "./domain.ts";
-import type { CaseOpened, CaseStageChanged, CaseStatusChanged, PartyAdded } from "./events.ts";
+import type {
+  CaseOpened,
+  CaseStageChanged,
+  CaseStatusChanged,
+  PartyAdded,
+  PartyRemoved,
+} from "./events.ts";
 
 export const PARTY_ROLES = ["buyer", "seller", "developer", "bank"] as const;
 export type PartyRole = (typeof PARTY_ROLES)[number];
@@ -318,7 +324,7 @@ export async function getCase(db: Db, firmId: string, caseId: string) {
       tx
         .select()
         .from(caseParties)
-        .where(eq(caseParties.caseId, caseId))
+        .where(and(eq(caseParties.caseId, caseId), isNull(caseParties.removedAt)))
         .orderBy(asc(caseParties.role)),
       tx
         .select()
@@ -331,7 +337,9 @@ export async function getCase(db: Db, firmId: string, caseId: string) {
     return {
       ...row,
       assignedLawyer: lawyer ? { id: lawyer.id, name: lawyer.name } : null,
-      parties: parties.map(({ firmId: _f, caseId: _c, userId: _u, ...p }) => p),
+      parties: parties.map(
+        ({ firmId: _f, caseId: _c, userId: _u, removedAt: _r, removedById: _b, ...p }) => p,
+      ),
       history: history.map(({ stageKey, enteredAt, completedAt }) => ({
         stageKey,
         enteredAt,
@@ -396,7 +404,7 @@ export async function listCases(
         buyers: sql<string[]>`coalesce((
           select array_agg(cp.full_name order by cp.full_name)
           from case_parties cp
-          where cp.case_id = "cases"."id" and cp.role = 'buyer'
+          where cp.case_id = "cases"."id" and cp.role = 'buyer' and cp.removed_at is null
         ), '{}')`,
       })
       .from(cases)
@@ -472,6 +480,7 @@ export async function findPartiesByIds(tx: Tx, ids: string[]) {
       fullName: caseParties.fullName,
       email: caseParties.email,
       phone: caseParties.phone,
+      removedAt: caseParties.removedAt,
     })
     .from(caseParties)
     .where(inArray(caseParties.id, ids));
@@ -503,7 +512,13 @@ export async function updatePartyContact(
         ...(input.email === undefined ? {} : { email: input.email?.trim().toLowerCase() || null }),
         ...(input.phone === undefined ? {} : { phone: input.phone?.trim() || null }),
       })
-      .where(and(eq(caseParties.id, input.partyId), eq(caseParties.caseId, c.id)))
+      .where(
+        and(
+          eq(caseParties.id, input.partyId),
+          eq(caseParties.caseId, c.id),
+          isNull(caseParties.removedAt),
+        ),
+      )
       .returning();
     if (!party) throw new AppError("not_found", "Party not found", "partyNotFound");
     await publishEvents(tx, [
@@ -515,5 +530,57 @@ export async function updatePartyContact(
       },
     ]);
     return party;
+  });
+}
+
+/**
+ * Takes a party off a case. They stay on record, so the files they sent and the audit trail
+ * keep their name, but they no longer appear on the case. A case always keeps a buyer.
+ */
+export async function removeParty(
+  db: Db,
+  input: {
+    firm: FirmContext;
+    actor: Actor;
+    caseId: string;
+    partyId: string;
+    expectedVersion: number;
+  },
+  clock: Clock = systemClock,
+) {
+  return withFirm(db, input.firm.firmId, async (tx) => {
+    const current = await loadForChange(tx, input.caseId, input.expectedVersion);
+    if (current.status === "completed" || current.status === "cancelled") {
+      throw new AppError("invalid", `A ${current.status} case cannot change`, "caseClosed", {
+        status: current.status,
+      });
+    }
+    const active = await tx
+      .select({ id: caseParties.id, role: caseParties.role, fullName: caseParties.fullName })
+      .from(caseParties)
+      .where(and(eq(caseParties.caseId, current.id), isNull(caseParties.removedAt)));
+    const party = active.find((p) => p.id === input.partyId);
+    if (!party) throw new AppError("not_found", "Party not found", "partyNotFound");
+    if (party.role === "buyer" && active.filter((p) => p.role === "buyer").length === 1) {
+      throw new AppError("invalid", "A case needs at least one buyer", "caseNeedsBuyer");
+    }
+    const updated = await bumpVersion(tx, current.id, current.version, { updatedAt: clock.now() });
+    await tx
+      .update(caseParties)
+      .set({ removedAt: clock.now(), removedById: input.actor.userId })
+      .where(eq(caseParties.id, party.id));
+    const removed: PartyRemoved = {
+      type: "cases.PartyRemoved",
+      firmId: input.firm.firmId,
+      actorUserId: input.actor.userId,
+      payload: {
+        ...entity(current.id, current.reference),
+        partyId: party.id,
+        role: party.role,
+        fullName: party.fullName,
+      },
+    };
+    await publishEvents(tx, [removed]);
+    return updated;
   });
 }

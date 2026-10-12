@@ -13,6 +13,7 @@ import {
   testStore,
   uniqueEmail,
   WEB_ORIGIN,
+  sendVerificationEmail,
 } from "./helpers.ts";
 
 // Integration: a buyer abroad follows their case through the portal and never sees firm-only files.
@@ -31,6 +32,7 @@ describe.skipIf(!process.env.DATABASE_URL || !process.env.DATABASE_ADMIN_URL)(
         baseURL: WEB_ORIGIN,
         secret: TEST_SECRET,
         trustedOrigins: [WEB_ORIGIN],
+        sendVerificationEmail,
       });
       app = await buildApp({ db, auth, webOrigin: WEB_ORIGIN, store, notifier: testNotifier() });
     });
@@ -226,6 +228,104 @@ describe.skipIf(!process.env.DATABASE_URL || !process.env.DATABASE_ADMIN_URL)(
       expect((await client(app).get("/api/portal/case")).statusCode).toBe(401);
     });
 
+    it("ends portal access when a party is removed or their contact details change", async () => {
+      const { lawyer, caseId, buyer, buyerEmail } = await setUp("Removing Lawyer");
+      const url = `/api/v1/cases/${caseId}`;
+      // The only buyer cannot be removed.
+      const version = (await lawyer.get(url)).headers.etag as string;
+      const lastBuyer = await lawyer.delete(`${url}/parties/${buyer.id}`, { "if-match": version });
+      expect(lastBuyer.json().messageKey).toBe("caseNeedsBuyer");
+
+      await lawyer.post(`${url}/parties/${buyer.id}/portal`, { locale: "en" });
+      const first = await signIn(buyerEmail);
+      await first.portal.post(`/api/portal/link/${first.token}/verify`, { code: first.code });
+      await first.portal.post("/api/portal/privacy/accept", {});
+      expect((await first.portal.get("/api/portal/case")).statusCode).toBe(200);
+
+      // A new phone number ends the old session, so the client signs in again.
+      await lawyer.patch(`${url}/parties/${buyer.id}`, { phone: "+357 99 555666" });
+      expect((await first.portal.get("/api/portal/case")).statusCode).toBe(401);
+
+      // With a second buyer on the case, the first can be removed.
+      const added = await lawyer.post(
+        `${url}/parties`,
+        { role: "buyer", fullName: "Second Buyer" },
+        { "if-match": (await lawyer.get(url)).headers.etag as string },
+      );
+      expect(added.statusCode).toBe(200);
+      await lawyer.post(`${url}/parties/${buyer.id}/portal`, { locale: "en" });
+      const second = await signIn(buyerEmail);
+      await second.portal.post(`/api/portal/link/${second.token}/verify`, { code: second.code });
+      const removed = await lawyer.delete(`${url}/parties/${buyer.id}`, {
+        "if-match": added.headers.etag as string,
+      });
+      expect(removed.statusCode).toBe(200);
+      expect(removed.json().parties.map((p: { fullName: string }) => p.fullName)).toEqual([
+        "Second Buyer",
+      ]);
+      expect((await second.portal.get("/api/portal/me")).statusCode).toBe(401);
+    });
+
+    it("never shows one client another client's files", async () => {
+      const { lawyer, caseId, buyer, buyerEmail, shared } = await setUp("Two Party Lawyer");
+      const url = `/api/v1/cases/${caseId}`;
+      const sellerEmail = uniqueEmail("seller");
+      const withSeller = await lawyer.post(
+        `${url}/parties`,
+        { role: "seller", fullName: "Petros Sellas", email: sellerEmail, phone: "+357 99 777888" },
+        { "if-match": (await lawyer.get(url)).headers.etag as string },
+      );
+      const seller = withSeller.json().parties.find((p: { role: string }) => p.role === "seller");
+
+      async function portalFor(partyId: string, email: string) {
+        await lawyer.post(`${url}/parties/${partyId}/portal`, { locale: "en" });
+        const s = await signIn(email);
+        await s.portal.post(`/api/portal/link/${s.token}/verify`, { code: s.code });
+        await s.portal.post("/api/portal/privacy/accept", {});
+        return s.portal;
+      }
+      const buyerPortal = await portalFor(buyer.id, buyerEmail);
+
+      // The buyer sends a passport of their own accord.
+      const bytes = Buffer.from("passport scan");
+      const up = (
+        await buyerPortal.post("/api/portal/uploads", {
+          title: "My passport",
+          fileName: "passport.pdf",
+          mimeType: "application/pdf",
+          byteSize: bytes.length,
+        })
+      ).json();
+      await fetch(up.uploadUrl, { method: "PUT", headers: up.uploadHeaders, body: bytes });
+      await buyerPortal.post(`/api/portal/uploads/${up.versionId}/complete`, {});
+      await admin.db
+        .update(schema.documentVersions)
+        .set({ scanStatus: "clean" })
+        .where(eq(schema.documentVersions.id, up.versionId));
+
+      // The buyer cannot slip a file into a document the firm shared.
+      const intoShared = await buyerPortal.post("/api/portal/uploads", {
+        documentId: shared.documentId,
+        fileName: "fake.pdf",
+        mimeType: "application/pdf",
+        byteSize: 10,
+      });
+      expect(intoShared.statusCode).toBe(404);
+
+      // The seller sees the firm's shared file, and nothing of the buyer's.
+      const sellerPortal = await portalFor(seller.id, sellerEmail);
+      const view = JSON.stringify((await sellerPortal.get("/api/portal/case")).json());
+      expect(view).toContain("Sale contract draft");
+      expect(view).not.toContain("My passport");
+      expect(
+        (await sellerPortal.get(`/api/portal/documents/${up.versionId}/download`)).statusCode,
+      ).toBe(404);
+      // The buyer still has it.
+      expect(
+        (await buyerPortal.get(`/api/portal/documents/${up.versionId}/download`)).statusCode,
+      ).toBe(200);
+    });
+
     it("emails a fresh link to a known client without saying who is known", async () => {
       const { lawyer, caseId, buyer, buyerEmail } = await setUp("Link Lawyer");
       await lawyer.post(`/api/v1/cases/${caseId}/parties/${buyer.id}/portal`, { locale: "el" });
@@ -237,6 +337,11 @@ describe.skipIf(!process.env.DATABASE_URL || !process.env.DATABASE_ADMIN_URL)(
         (await client(app).post("/api/portal/sign-in", { email: uniqueEmail("nobody") }))
           .statusCode,
       ).toBe(204);
+      // The emails go out after the answer, so the timing reveals nothing; wait for them.
+      for (let i = 0; i < 50 && sentMessages.length === before; i++) {
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      await new Promise((r) => setTimeout(r, 200));
       const fresh = sentMessages.slice(before);
       expect(fresh).toHaveLength(1);
       expect(fresh[0]).toMatchObject({ template: "portal-sign-in", locale: "el", to: buyerEmail });

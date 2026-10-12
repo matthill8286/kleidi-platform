@@ -13,7 +13,7 @@ import {
   slugify,
   type Role,
 } from "./domain.ts";
-import type { FirmCreated, MemberInvited, MemberJoined } from "./events.ts";
+import type { FirmCreated, MemberInvited, MemberJoined, MemberRemoved } from "./events.ts";
 
 export type Actor = { userId: string; name: string; email: string };
 export type FirmContext = { firmId: string; role: Role };
@@ -249,5 +249,47 @@ export async function acceptInvitation(
     };
     await publishEvents(tx, [event]);
     return { firmId: invitation.firmId, role: invitation.role };
+  });
+}
+
+/**
+ * Takes someone out of the firm, for example when they leave. Their access to the firm's
+ * cases ends at once; what they did stays in the audit trail under their name.
+ */
+export async function removeMember(
+  db: Db,
+  input: { firm: FirmContext; actor: Actor; userId: string },
+) {
+  if (!canManageTeam(input.firm.role)) {
+    throw new AppError("forbidden", "Only firm admins can remove people", "adminsOnlyRemove");
+  }
+  return db.transaction(async (tx) => {
+    const members = await tx
+      .select()
+      .from(firmMembers)
+      .where(eq(firmMembers.firmId, input.firm.firmId))
+      .for("update");
+    const member = members.find((m) => m.userId === input.userId);
+    if (!member) throw new AppError("not_found", "Member not found", "memberNotFound");
+    const admins = members.filter((m) => m.role === "firm_admin");
+    if (member.role === "firm_admin" && admins.length === 1) {
+      throw new AppError("invalid", "A firm needs at least one admin", "lastAdmin");
+    }
+    await tx
+      .delete(firmMembers)
+      .where(and(eq(firmMembers.firmId, input.firm.firmId), eq(firmMembers.userId, input.userId)));
+    const [user] = await findUsersByIds(tx, [input.userId]);
+    const removed: MemberRemoved = {
+      type: "firms.MemberRemoved",
+      firmId: input.firm.firmId,
+      actorUserId: input.actor.userId,
+      payload: {
+        entityType: "member",
+        entityId: input.userId,
+        name: user?.name ?? "",
+        role: member.role,
+      },
+    };
+    await publishEvents(tx, [removed]);
   });
 }

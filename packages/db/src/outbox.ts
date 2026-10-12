@@ -1,7 +1,7 @@
-import { and, asc, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, inArray, isNull, lt, sql } from "drizzle-orm";
 import type { DomainEvent, StoredEvent } from "@kleidi/kernel";
 import type { Db, Tx } from "./client.ts";
-import { outbox, processedEvents } from "./schema/index.ts";
+import { idempotencyKeys, outbox, processedEvents } from "./schema/index.ts";
 
 /** Stores events in the outbox inside the caller's transaction, so they commit with the change. */
 export async function publishEvents(tx: Tx, events: DomainEvent[]): Promise<void> {
@@ -79,4 +79,20 @@ export async function handleOnce(
   if (claimed.length === 0) return false;
   await fn();
   return true;
+}
+
+/**
+ * Deletes what is no longer needed: events relayed more than a week ago, which may hold
+ * invitation tokens, and idempotency responses past their 24 hours.
+ */
+export async function purgeExpired(db: Db): Promise<{ events: number; keys: number }> {
+  const events = await db
+    .delete(outbox)
+    .where(lt(outbox.publishedAt, sql`now() - interval '7 days'`))
+    .returning({ id: outbox.id });
+  const keys = await db
+    .delete(idempotencyKeys)
+    .where(lt(idempotencyKeys.createdAt, sql`now() - interval '24 hours'`))
+    .returning({ id: idempotencyKeys.id });
+  return { events: events.length, keys: keys.length };
 }

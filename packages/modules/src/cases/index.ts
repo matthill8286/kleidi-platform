@@ -8,6 +8,7 @@ export {
   listCases,
   openCase,
   PARTY_ROLES,
+  removeParty,
   transitionCase,
   updatePartyContact,
   type OpenCaseInput,
@@ -27,4 +28,5 @@ export type {
   CaseStatusChanged,
   CasesEvent,
   PartyAdded,
+  PartyRemoved,
 } from "./events.ts";

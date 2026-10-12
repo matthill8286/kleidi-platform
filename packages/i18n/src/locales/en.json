@@ -42,7 +42,8 @@
     "verify": "Verify",
     "invalidCode": "That code is not right. Check your app and try again.",
     "sideTitle": "One shared case file for every property sale",
-    "sideLead": "Lawyers, buyers and banks follow each sale from reservation to title deed transfer."
+    "sideLead": "Lawyers, buyers and banks follow each sale from reservation to title deed transfer.",
+    "checkInbox": "We sent a link to {{email}}. Open it to confirm your address and continue."
   },
   "security": {
     "title": "Secure your account",
@@ -170,7 +171,8 @@
       "reminderSent": "Reminder sent for {{title}}",
       "stageSkipped": "moved the case to {{to}} with {{count}} checklist items unfinished",
       "accepted": "accepted {{title}} (v{{version}})",
-      "rejected": "rejected {{title}} (v{{version}})"
+      "rejected": "rejected {{title}} (v{{version}})",
+      "downloaded": "downloaded {{title}} (v{{version}})"
     },
     "docs": {
       "title": "Documents",
@@ -230,7 +232,9 @@
       "firm_admin": "Firm admin",
       "lawyer": "Lawyer",
       "staff": "Staff"
-    }
+    },
+    "remove": "Remove",
+    "removeConfirm": "Remove {{name}} from the firm? They lose access to every case at once."
   },
   "invite": {
     "title": "Join {{firm}}",
@@ -301,7 +305,8 @@
       "INVALID_CODE": "That code is not right. Check your app and try again.",
       "OTP_HAS_EXPIRED": "That code has expired. Enter the new one from your app.",
       "TOO_MANY_ATTEMPTS": "Too many attempts. Wait a few minutes and try again.",
-      "TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE": "Too many attempts. Request a new code."
+      "TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE": "Too many attempts. Request a new code.",
+      "EMAIL_NOT_VERIFIED": "Confirm your email first. We have sent you a new link."
     },
     "deadlineTitle": "Give the deadline a title.",
     "deadlinePast": "The deadline must be in the future.",
@@ -329,7 +334,12 @@
     "tooManyAttempts": "Too many wrong codes. Ask for a new link.",
     "tooManyCodes": "Too many codes were sent. Ask for a new link.",
     "privacyNeeded": "Accept the privacy notice to continue.",
-    "consentNotFound": "This sharing permission could not be found."
+    "consentNotFound": "This sharing permission could not be found.",
+    "smsCountryBlocked": "Kleidi cannot send texts to this country yet.",
+    "firmCreationClosed": "Kleidi is open to invited firms only. Contact us to join the pilot.",
+    "adminsOnlyRemove": "Only firm admins can remove people.",
+    "memberNotFound": "This person is not in the firm.",
+    "lastAdmin": "A firm needs at least one admin. Make someone else an admin first."
   },
   "deadlines": {
     "heading": "Deadlines",
@@ -459,7 +469,9 @@
       "send": "Send invitation",
       "asked": "Asked from client",
       "ask": "Ask client",
-      "stopAsking": "Stop asking"
+      "stopAsking": "Stop asking",
+      "removeParty": "Remove from case",
+      "removeConfirm": "Remove {{name}} from this case? Their portal access ends now. Files they sent and the case history keep their name."
     },
     "events": {
       "invited": "invited {{name}} to the portal",
@@ -471,7 +483,9 @@
       "contact": "updated the contact details for {{name}}",
       "requested": "asked the client for {{title}}",
       "unrequested": "stopped asking the client for {{title}}",
-      "clientSent": "{{name}} sent {{title}}"
+      "clientSent": "{{name}} sent {{title}}",
+      "partyRemoved": "removed {{name}} ({{role}}) from the case",
+      "clientDownloaded": "{{name}} downloaded {{title}}"
     }
   }
 }

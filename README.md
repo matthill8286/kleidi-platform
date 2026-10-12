@@ -36,6 +36,25 @@ To sign in as the local test user, put `DEV_LOGIN_EMAIL` and `DEV_LOGIN_PASSWORD
 
 The web app runs on http://localhost:5180 and the API on http://localhost:4100. Mailpit, which catches outgoing email, runs on http://localhost:8025.
 
+## Tests
+
+Tests run against their own database, so they never touch your development data. Create it once, and again after adding migrations:
+
+```bash
+pnpm test:setup
+pnpm test
+```
+
+Test packages run one at a time because they share that database.
+
+## Production image
+
+One `Dockerfile` builds three targets: `api` (also serves the web app), `worker` (with ClamAV inside) and `migrate`. See `docs/runbook.md` for deploying to Scaleway, `docs/hardening-report.md` for the launch checks, and `docs/pilot-onboarding.md` for bringing a firm on.
+
+```bash
+docker build --target api -t kleidi-api .
+```
+
 ## Checks
 
 ```bash

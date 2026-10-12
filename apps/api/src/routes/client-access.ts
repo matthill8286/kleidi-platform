@@ -5,7 +5,12 @@ import { updatePartyContact } from "@kleidi/modules/cases";
 import { setRequestedFromClient } from "@kleidi/modules/documents";
 import { LOCALES } from "@kleidi/modules/identity";
 import type { Notifier } from "@kleidi/modules/notifications";
-import { inviteClient, listPortalAccess, revokeAccess } from "@kleidi/modules/portal";
+import {
+  inviteClient,
+  listPortalAccess,
+  revokeAccess,
+  syncPartyContact,
+} from "@kleidi/modules/portal";
 import type { Context } from "../plugins/context.ts";
 
 /** The firm's side of the portal: contact details, invitations and what to ask clients for. */
@@ -37,6 +42,8 @@ export const clientAccessRoutes: FastifyPluginAsyncZod<{
         partyId: request.params.partyId,
         ...request.body,
       });
+      // The portal must not keep using an old email or phone.
+      await syncPartyContact(db, firm.firmId, request.params.partyId);
       return reply.code(204).send();
     },
   );

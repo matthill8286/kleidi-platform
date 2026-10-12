@@ -26,8 +26,9 @@ export type ObjectStore = {
   signUpload(key: string, mimeType: string, byteSize: number, seconds: number): Promise<string>;
   signDownload(key: string, fileName: string, seconds: number): Promise<string>;
   size(key: string): Promise<number | null>;
-  read(key: string): Promise<Readable>;
-  move(from: string, to: string): Promise<void>;
+  // The ETag names the exact bytes read, so a later move can insist on the same object.
+  read(key: string): Promise<{ body: Readable; etag: string }>;
+  move(from: string, to: string, ifMatch?: string): Promise<void>;
   remove(key: string): Promise<void>;
 };
 
@@ -81,10 +82,18 @@ export function createS3Store(config: StorageConfig): ObjectStore {
     },
     async read(key) {
       const res = await s3.send(new GetObjectCommand({ Bucket, Key: key }));
-      return res.Body as Readable;
+      return { body: res.Body as Readable, etag: res.ETag ?? "" };
     },
-    async move(from, to) {
-      await s3.send(new CopyObjectCommand({ Bucket, Key: to, CopySource: `${Bucket}/${from}` }));
+    async move(from, to, ifMatch) {
+      // With ifMatch, the copy fails if the object changed after it was read.
+      await s3.send(
+        new CopyObjectCommand({
+          Bucket,
+          Key: to,
+          CopySource: `${Bucket}/${from}`,
+          ...(ifMatch ? { CopySourceIfMatch: ifMatch } : {}),
+        }),
+      );
       await s3.send(new DeleteObjectCommand({ Bucket, Key: from }));
     },
     async remove(key) {

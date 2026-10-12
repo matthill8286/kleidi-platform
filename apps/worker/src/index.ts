@@ -1,5 +1,6 @@
+import { createServer } from "node:http";
 import { PgBoss } from "pg-boss";
-import { createDb } from "@kleidi/db";
+import { createDb, purgeExpired } from "@kleidi/db";
 import type { StoredEvent } from "@kleidi/kernel";
 import { announceDueReminders } from "@kleidi/modules/deadlines";
 import {
@@ -64,6 +65,7 @@ for (const consumer of consumers) {
 const scheduled = [
   { name: "deadline-reminders", cron: "*/15 * * * *", run: () => announceDueReminders(db) },
   { name: "document-expiry", cron: "0 6 * * *", run: () => flagExpiringDocuments(db) },
+  { name: "purge-expired", cron: "30 3 * * *", run: () => purgeExpired(db) },
   {
     name: "daily-digest",
     cron: "0 7 * * *",
@@ -99,8 +101,17 @@ console.log(
   `[worker] started: ${[...consumers.map((c) => queueFor(c.name)), ...scheduled.map((j) => j.name)].join(", ")}`,
 );
 
+// Serverless containers expect an HTTP port; this answers their health checks.
+const health = process.env.PORT
+  ? createServer((_req, res) => {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ status: "ok" }));
+    }).listen(Number(process.env.PORT))
+  : null;
+
 const shutdown = async () => {
   clearInterval(relayTimer);
+  health?.close();
   await boss.stop({ graceful: true });
   await close();
   process.exit(0);

@@ -57,6 +57,27 @@
       "when": 1791795305373,
       "tag": "0007_firm_files_accepted",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791805564822,
+      "tag": "0008_fresh_karnak",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791805762930,
+      "tag": "0009_clumsy_marrow",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791817056435,
+      "tag": "0010_existing_users_verified",
+      "breakpoints": true
     }
   ]
 }

@@ -1,0 +1,104 @@
+name: Deploy
+
+# Run by hand once CI is green: builds the three images for this commit, migrates the
+# database, then rolls the api and worker over to the new images.
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: staging or prod
+        required: true
+        default: staging
+        type: choice
+        options: [staging, prod]
+
+concurrency: deploy-${{ inputs.environment }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    env:
+      REGISTRY: rg.fr-par.scw.cloud/kleidi-${{ inputs.environment }}
+      TAG: ${{ github.sha }}
+      SCW_ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
+      SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
+      SCW_DEFAULT_PROJECT_ID: ${{ secrets.SCW_PROJECT_ID }}
+      SCW_DEFAULT_REGION: fr-par
+      # The state bucket speaks S3, so OpenTofu reads these as its credentials.
+      AWS_ACCESS_KEY_ID: ${{ secrets.SCW_ACCESS_KEY }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.SCW_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to the Scaleway registry
+        run: echo "$SCW_SECRET_KEY" | docker login rg.fr-par.scw.cloud -u nologin --password-stdin
+
+      - name: Build and push the images
+        run: |
+          for target in api worker migrate; do
+            docker build --target "$target" -t "$REGISTRY/$target:$TAG" .
+            docker push "$REGISTRY/$target:$TAG"
+          done
+
+      - uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: 1.10.6
+
+      # State lives in an encrypted Scaleway bucket; see docs/runbook.md.
+      - name: Point the migrate job at this release
+        working-directory: infra/opentofu
+        env:
+          TF_VAR_project_id: ${{ secrets.SCW_PROJECT_ID }}
+          TF_VAR_environment: ${{ inputs.environment }}
+          TF_VAR_image_tag: ${{ github.sha }}
+          TF_VAR_app_hostname: ${{ vars.APP_HOSTNAME }}
+          TF_VAR_web_origin: https://${{ vars.APP_HOSTNAME }}
+          TF_VAR_firm_creators: ${{ vars.FIRM_CREATORS }}
+          TF_VAR_db_admin_password: ${{ secrets.DB_ADMIN_PASSWORD }}
+          TF_VAR_db_app_password: ${{ secrets.DB_APP_PASSWORD }}
+          TF_VAR_auth_secret: ${{ secrets.AUTH_SECRET }}
+          TF_VAR_s3_access_key: ${{ secrets.SCW_ACCESS_KEY }}
+          TF_VAR_s3_secret_key: ${{ secrets.SCW_SECRET_KEY }}
+          TF_VAR_brevo_api_key: ${{ secrets.BREVO_API_KEY }}
+          TF_ENCRYPTION: ${{ secrets.TF_ENCRYPTION }}
+        run: |
+          tofu init -input=false
+          tofu apply -input=false -auto-approve -target=scaleway_job_definition.migrate
+
+      - name: Migrate the database
+        run: |
+          curl -sL https://github.com/scaleway/scaleway-cli/releases/download/v2.40.0/scaleway-cli_2.40.0_linux_amd64 -o scw
+          chmod +x scw
+          job=$(./scw jobs definition list name=kleidi-${{ inputs.environment }}-migrate -o json | jq -r '.[0].id')
+          run=$(./scw jobs definition start "$job" -o json | jq -r '.job_runs[0].id')
+          ./scw jobs run wait "$run"
+          state=$(./scw jobs run get "$run" -o json | jq -r .state)
+          echo "Migration finished: $state"
+          [ "$state" = "succeeded" ]
+
+      - name: Roll out the api and worker
+        working-directory: infra/opentofu
+        env:
+          TF_VAR_project_id: ${{ secrets.SCW_PROJECT_ID }}
+          TF_VAR_environment: ${{ inputs.environment }}
+          TF_VAR_image_tag: ${{ github.sha }}
+          TF_VAR_app_hostname: ${{ vars.APP_HOSTNAME }}
+          TF_VAR_web_origin: https://${{ vars.APP_HOSTNAME }}
+          TF_VAR_firm_creators: ${{ vars.FIRM_CREATORS }}
+          TF_VAR_db_admin_password: ${{ secrets.DB_ADMIN_PASSWORD }}
+          TF_VAR_db_app_password: ${{ secrets.DB_APP_PASSWORD }}
+          TF_VAR_auth_secret: ${{ secrets.AUTH_SECRET }}
+          TF_VAR_s3_access_key: ${{ secrets.SCW_ACCESS_KEY }}
+          TF_VAR_s3_secret_key: ${{ secrets.SCW_SECRET_KEY }}
+          TF_VAR_brevo_api_key: ${{ secrets.BREVO_API_KEY }}
+          TF_ENCRYPTION: ${{ secrets.TF_ENCRYPTION }}
+        run: tofu apply -input=false -auto-approve
+
+      - name: Check the new release answers
+        run: |
+          for i in $(seq 1 30); do
+            curl -sf "https://${{ vars.APP_HOSTNAME }}/health" && exit 0
+            sleep 10
+          done
+          echo "The api did not become healthy" && exit 1

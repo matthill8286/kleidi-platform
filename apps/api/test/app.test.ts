@@ -2,7 +2,13 @@ import { afterAll, describe, expect, it } from "vitest";
 import { createDb, type Db } from "@kleidi/db";
 import { createAuth } from "@kleidi/modules/identity";
 import { buildApp } from "../src/app.ts";
-import { TEST_SECRET, WEB_ORIGIN, testStore, testNotifier } from "./helpers.ts";
+import {
+  TEST_SECRET,
+  WEB_ORIGIN,
+  testStore,
+  testNotifier,
+  sendVerificationEmail,
+} from "./helpers.ts";
 
 const unreachableDb = {
   execute: async () => {
@@ -18,6 +24,7 @@ const appWith = (db: Db) =>
       baseURL: WEB_ORIGIN,
       secret: TEST_SECRET,
       trustedOrigins: [WEB_ORIGIN],
+      sendVerificationEmail,
     }),
     webOrigin: WEB_ORIGIN,
     store: testStore(),

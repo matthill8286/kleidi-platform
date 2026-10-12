@@ -9,6 +9,7 @@ export {
   listMyFirms,
   listTeam,
   previewInvitation,
+  removeMember,
   type Actor,
   type FirmContext,
 } from "./application.ts";

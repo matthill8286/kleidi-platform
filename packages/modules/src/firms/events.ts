@@ -26,4 +26,9 @@ export type MemberJoined = DomainEvent<
   { entityType: "member"; entityId: string; role: Role }
 >;
 
-export type FirmsEvent = FirmCreated | MemberInvited | MemberJoined;
+export type MemberRemoved = DomainEvent<
+  "firms.MemberRemoved",
+  { entityType: "member"; entityId: string; name: string; role: Role }
+>;
+
+export type FirmsEvent = FirmCreated | MemberInvited | MemberJoined | MemberRemoved;

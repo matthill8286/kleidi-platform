@@ -21,6 +21,15 @@ function TeamPage() {
   const errorText = useErrorText();
   const team = useQuery({ queryKey: ["team", firm.id], queryFn: api.team });
   const [sent, setSent] = useState<string | null>(null);
+  // Removing someone ends their access to every case, so it asks first.
+  const [removing, setRemoving] = useState<string | null>(null);
+  const remove = useMutation({
+    mutationFn: api.removeMember,
+    onSuccess: async () => {
+      setRemoving(null);
+      await queryClient.invalidateQueries({ queryKey: ["team", firm.id] });
+    },
+  });
   const invite = useMutation({
     mutationFn: ({ email, role }: { email: string; role: Role }) => api.invite(email, role),
     onSuccess: async (invitation) => {
@@ -79,8 +88,35 @@ function TeamPage() {
                   <div className="muted">{m.email}</div>
                 </div>
                 <span className={`chip ${ROLE_CHIP[m.role]}`}>{t(`team.roles.${m.role}`)}</span>
+                {isAdmin && m.userId !== me.user.id && (
+                  <button className="btn quiet small danger" onClick={() => setRemoving(m.userId)}>
+                    {t("team.remove")}
+                  </button>
+                )}
               </div>
             ))}
+            {removing && (
+              <div className="reason">
+                <p style={{ margin: 0 }}>
+                  {t("team.removeConfirm", {
+                    name: team.data?.members.find((m) => m.userId === removing)?.name ?? "",
+                  })}
+                </p>
+                <ErrorAlert message={errorText(remove.error)} />
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                  <button className="btn quiet" onClick={() => setRemoving(null)}>
+                    {t("common.cancel")}
+                  </button>
+                  <button
+                    className="btn danger-fill"
+                    disabled={remove.isPending}
+                    onClick={() => remove.mutate(removing)}
+                  >
+                    {t("team.remove")}
+                  </button>
+                </div>
+              </div>
+            )}
             {team.isPending && (
               <p className="muted" style={{ padding: 18 }}>
                 {t("common.loading")}

@@ -31,6 +31,7 @@ const SAMPLES: { [K in TemplateName]: TemplateData[K] } = {
   },
   "portal-sign-in": { firmName: "Christou & Co", link: "https://x/p" },
   "portal-code": { code: "123456" },
+  "verify-email": { name: "Elena", link: "https://x/v" },
   "daily-digest": {
     name: "Elena",
     overdue: [],

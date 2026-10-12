@@ -3,7 +3,14 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createDb } from "@kleidi/db";
 import { createAuth } from "@kleidi/modules/identity";
 import { buildApp } from "../src/app.ts";
-import { enrolledUser, TEST_SECRET, testStore, testNotifier, WEB_ORIGIN } from "./helpers.ts";
+import {
+  enrolledUser,
+  TEST_SECRET,
+  testStore,
+  testNotifier,
+  WEB_ORIGIN,
+  sendVerificationEmail,
+} from "./helpers.ts";
 
 const inHours = (h: number) => new Date(Date.now() + h * 60 * 60 * 1000).toISOString();
 
@@ -18,6 +25,7 @@ describe.skipIf(!process.env.DATABASE_URL)("deadlines and profile", () => {
       baseURL: WEB_ORIGIN,
       secret: TEST_SECRET,
       trustedOrigins: [WEB_ORIGIN],
+      sendVerificationEmail,
     });
     app = await buildApp({
       db,

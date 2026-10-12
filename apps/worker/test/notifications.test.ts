@@ -143,7 +143,8 @@ describe.skipIf(!process.env.DATABASE_URL || !process.env.DATABASE_ADMIN_URL)(
       ).toBeGreaterThanOrEqual(1);
       expect(digests).toHaveLength(1);
       expect(digests[0]!.locale).toBe("el");
-    });
+      // The digest visits every firm in the shared test database.
+    }, 60_000);
 
     it("skips the digest for a member with nothing due", async () => {
       // A day later in the clock's eyes, the deadlines are still open, so a digest goes again;
@@ -163,6 +164,6 @@ describe.skipIf(!process.env.DATABASE_URL || !process.env.DATABASE_ADMIN_URL)(
       const tomorrow: Clock = { now: () => new Date(Date.now() + 24 * HOUR) };
       await sendDailyDigests(db, notifier, APP, tomorrow);
       expect(sent.some((m) => m.template === "daily-digest" && m.to === quiet!.email)).toBe(false);
-    });
+    }, 60_000);
   },
 );

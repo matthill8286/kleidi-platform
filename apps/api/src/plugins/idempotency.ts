@@ -34,6 +34,8 @@ export function createIdempotency(db: Db) {
         JSON.stringify([
           request.method,
           request.url,
+          // The same key in another firm is a different request, never a replay.
+          request.headers["x-kleidi-firm"] ?? null,
           request.headers["if-match"] ?? null,
           request.body ?? null,
         ]),

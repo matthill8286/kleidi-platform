@@ -422,6 +422,7 @@ function Parties({
           access={portalAccess.data?.find((a) => a.partyId === p.id)}
           closed={closed}
           onChanged={() => queryClient.invalidateQueries({ queryKey: ["case", c.id], exact: true })}
+          onRemove={() => onWrite(api.removeParty(c.id, c.version, p.id))}
         />
       ))}
       {adding && (
@@ -537,12 +538,21 @@ function ActivityCard({
           who: t(`portal.sharing.types.${m.granteeType}`),
           ref: m.granteeRef,
         });
+      case "cases.PartyRemoved":
+        return t("portal.events.partyRemoved", {
+          name: m.fullName,
+          role: t(`cases.roles.${m.role}`),
+        });
       case "cases.PartyContactChanged":
         return t("portal.events.contact", { name: m.fullName });
       case "documents.ClientRequestChanged":
         return t(a.metadata.requested ? "portal.events.requested" : "portal.events.unrequested", {
           title,
         });
+      case "documents.VersionDownloaded":
+        return m.client
+          ? t("portal.events.clientDownloaded", { name: m.client, title })
+          : t("cases.events.downloaded", { title, version: m.version });
       case "documents.VersionAccepted":
         return t("cases.events.accepted", { title, version: m.version });
       case "documents.VersionRejected":

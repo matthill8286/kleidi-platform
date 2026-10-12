@@ -12,7 +12,8 @@
     "migrate": "node --env-file-if-exists=../../.env src/migrate.ts",
     "seed": "node --env-file-if-exists=../../.env src/seed.ts",
     "typecheck": "tsc",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:setup": "node --env-file-if-exists=../../.env src/test-db.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.4",

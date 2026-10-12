@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { AuthLayout, ErrorAlert, Field } from "../components/ui.tsx";
 import { authClient } from "../lib/auth.ts";
 import { loadMe, ME_KEY, redirectSearch } from "../lib/session.ts";
+import { useErrorText } from "../lib/errors.ts";
 
 export const Route = createFileRoute("/sign-in")({
   validateSearch: redirectSearch,
@@ -16,6 +17,7 @@ export const Route = createFileRoute("/sign-in")({
 
 function SignIn() {
   const { t } = useTranslation();
+  const errorText = useErrorText();
   const router = useRouter();
   const { redirect: next } = Route.useSearch();
   const { queryClient } = Route.useRouteContext();
@@ -32,7 +34,12 @@ function SignIn() {
       password: String(form.get("password")),
     });
     setBusy(false);
-    if (failed) return setError(t("auth.invalidCredentials"));
+    // An unconfirmed address gets a fresh link and says so; anything else stays vague.
+    if (failed) {
+      return setError(
+        failed.code === "EMAIL_NOT_VERIFIED" ? errorText(failed) : t("auth.invalidCredentials"),
+      );
+    }
     if (data && "twoFactorRedirect" in data && data.twoFactorRedirect) {
       return router.navigate({ to: "/two-factor", search: next ? { redirect: next } : {} });
     }

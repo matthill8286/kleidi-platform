@@ -30,4 +30,10 @@ export type PartyAdded = DomainEvent<
   CaseEntity & { partyId: string; role: string; fullName: string }
 >;
 
-export type CasesEvent = CaseOpened | CaseStageChanged | CaseStatusChanged | PartyAdded;
+export type PartyRemoved = DomainEvent<
+  "cases.PartyRemoved",
+  CaseEntity & { partyId: string; role: string; fullName: string }
+>;
+
+export type CasesEvent =
+  CaseOpened | CaseStageChanged | CaseStatusChanged | PartyAdded | PartyRemoved;
