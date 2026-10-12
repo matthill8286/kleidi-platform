@@ -36,6 +36,7 @@ const DocumentView = z.object({
   title: z.string(),
   requirementKey: z.string().nullable(),
   visibility: z.enum(["client", "firm"]),
+  requestedFromClient: z.boolean(),
   expiresOn: z.string().nullable(),
   state: z.enum(ITEM_STATES),
   versions: z.array(
@@ -52,6 +53,7 @@ const DocumentView = z.object({
       reviewedBy: z.string().nullable(),
       reviewedAt: z.date().nullable(),
       uploadedBy: z.string().nullable(),
+      byClient: z.boolean(),
       createdAt: z.date(),
     }),
   ),

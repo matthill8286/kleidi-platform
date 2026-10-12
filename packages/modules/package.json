@@ -11,7 +11,8 @@
     "./firms": "./src/firms/index.ts",
     "./identity": "./src/identity/index.ts",
     "./jurisdictions": "./src/jurisdictions/index.ts",
-    "./notifications": "./src/notifications/index.ts"
+    "./notifications": "./src/notifications/index.ts",
+    "./portal": "./src/portal/index.ts"
   },
   "scripts": {
     "typecheck": "tsc",

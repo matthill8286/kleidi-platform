@@ -1,6 +1,7 @@
 import { createHmac, randomUUID } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import { createS3Store } from "@kleidi/modules/documents";
+import type { Notifier, OutboundMessage } from "@kleidi/modules/notifications";
 
 export const WEB_ORIGIN = "http://localhost:5180";
 export const TEST_SECRET = "test-secret-that-is-at-least-32-characters-long";
@@ -96,3 +97,12 @@ export const testStore = () =>
     accessKeyId: process.env.S3_ACCESS_KEY ?? "kleidi",
     secretAccessKey: process.env.S3_SECRET_KEY ?? "kleidi-dev-secret",
   });
+
+/** Messages the app sent during the tests, newest last, instead of real email and SMS. */
+export const sentMessages: OutboundMessage[] = [];
+export const testNotifier = (): Notifier => ({
+  send: async (message) => {
+    sentMessages.push(message);
+    return { providerId: randomUUID() };
+  },
+});

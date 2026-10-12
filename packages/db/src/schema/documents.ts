@@ -1,5 +1,6 @@
 import {
   bigint,
+  boolean,
   date,
   index,
   integer,
@@ -10,7 +11,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import { cases } from "./cases.ts";
+import { caseParties, cases } from "./cases.ts";
 import { createdAt, id, updatedAt } from "./columns.ts";
 import { firmRef } from "./firms.ts";
 import { users } from "./identity.ts";
@@ -44,6 +45,8 @@ export const documents = pgTable(
     // The expiry state last announced, so the daily job flags each change once.
     expiryFlag: text("expiry_flag"),
     latestVersion: integer("latest_version").notNull().default(0),
+    // The lawyer asked the client for this; it shows in the client's portal.
+    requestedFromClient: boolean("requested_from_client").notNull().default(false),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -75,9 +78,9 @@ export const documentVersions = pgTable(
     reviewNote: text("review_note"),
     reviewedById: uuid("reviewed_by_id").references(() => users.id),
     reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
-    uploadedById: uuid("uploaded_by_id")
-      .notNull()
-      .references(() => users.id),
+    // A firm user or, through the portal, a case party uploaded it.
+    uploadedById: uuid("uploaded_by_id").references(() => users.id),
+    uploadedByPartyId: uuid("uploaded_by_party_id").references(() => caseParties.id),
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex("document_versions_doc_version").on(t.documentId, t.version)],

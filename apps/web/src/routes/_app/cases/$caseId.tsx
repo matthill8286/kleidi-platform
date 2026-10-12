@@ -3,8 +3,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { CaseDocumentsCard } from "../../../components/case-documents.tsx";
+import { PartyRow } from "../../../components/client-access.tsx";
 import { CaseDeadlinesCard } from "../../../components/deadlines.tsx";
-import { Avatar, ErrorAlert, Field, Icon } from "../../../components/ui.tsx";
+import { ErrorAlert, Field, Icon } from "../../../components/ui.tsx";
 import {
   api,
   ApiError,
@@ -152,7 +153,6 @@ function CasePage() {
           <CaseDocumentsCard
             caseId={c.id}
             closed={c.status === "completed" || c.status === "cancelled"}
-            canReview={firm.role !== "staff"}
           />
           <section className="card">
             <div className="card-head">
@@ -384,15 +384,22 @@ function Parties({
     onSuccess: () => setAdding(false),
   });
   const closed = c.status === "completed" || c.status === "cancelled";
+  const queryClient = useQueryClient();
+  const portalAccess = useQuery({
+    queryKey: ["case", c.id, "portal"],
+    queryFn: () => api.portalAccess(c.id),
+  });
 
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const data = new FormData(e.currentTarget);
     const email = String(data.get("email") ?? "").trim();
+    const phone = String(data.get("phone") ?? "").trim();
     add.mutate({
       role: data.get("role") as PartyRole,
       fullName: String(data.get("fullName") ?? "").trim(),
       ...(email ? { email } : {}),
+      ...(phone ? { phone } : {}),
     });
   }
 
@@ -408,16 +415,14 @@ function Parties({
         )}
       </div>
       {c.parties.map((p) => (
-        <div className="list-row" key={p.id}>
-          <Avatar name={p.fullName} size={30} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <b style={{ color: "var(--ink)" }}>{p.fullName}</b>
-            {(p.email || p.phone) && (
-              <div className="muted clip">{[p.email, p.phone].filter(Boolean).join(" · ")}</div>
-            )}
-          </div>
-          <span className="chip c-grey">{t(`cases.roles.${p.role}`)}</span>
-        </div>
+        <PartyRow
+          key={p.id}
+          caseId={c.id}
+          party={p}
+          access={portalAccess.data?.find((a) => a.partyId === p.id)}
+          closed={closed}
+          onChanged={() => queryClient.invalidateQueries({ queryKey: ["case", c.id], exact: true })}
+        />
       ))}
       {adding && (
         <form className="reason" onSubmit={submit}>
@@ -435,9 +440,14 @@ function Parties({
               <input name="fullName" required minLength={2} maxLength={160} autoFocus />
             </Field>
           </div>
-          <Field label={t("cases.form.partyEmail")} hint={t("cases.form.optional")}>
-            <input name="email" type="email" />
-          </Field>
+          <div className="grid-2">
+            <Field label={t("cases.form.partyEmail")} hint={t("cases.form.optional")}>
+              <input name="email" type="email" />
+            </Field>
+            <Field label={t("settings.phone")} hint={t("cases.form.optional")}>
+              <input name="phone" type="tel" placeholder="+357 99 123456" />
+            </Field>
+          </div>
           <ErrorAlert
             message={
               add.error instanceof ApiError && add.error.status === 412
@@ -506,7 +516,33 @@ function ActivityCard({
       case "deadlines.ReminderDue":
         return t("cases.events.reminderSent", { title: m.title });
       case "documents.VersionUploaded":
-        return t("cases.events.uploaded", { title, version: m.version });
+        return m.client
+          ? t("portal.events.clientSent", { name: m.client, title })
+          : t("cases.events.uploaded", { title, version: m.version });
+      case "portal.ClientInvited":
+        return t("portal.events.invited", { name: m.partyName });
+      case "portal.ClientSignedIn":
+        return t("portal.events.signedIn");
+      case "portal.AccessRevoked":
+        return t("portal.events.revoked");
+      case "portal.PrivacyAccepted":
+        return t("portal.events.privacy", { version: m.version });
+      case "consent.Granted":
+        return t("portal.events.consentGranted", {
+          who: t(`portal.sharing.types.${m.granteeType}`),
+          ref: m.granteeRef,
+        });
+      case "consent.Revoked":
+        return t("portal.events.consentRevoked", {
+          who: t(`portal.sharing.types.${m.granteeType}`),
+          ref: m.granteeRef,
+        });
+      case "cases.PartyContactChanged":
+        return t("portal.events.contact", { name: m.fullName });
+      case "documents.ClientRequestChanged":
+        return t(a.metadata.requested ? "portal.events.requested" : "portal.events.unrequested", {
+          title,
+        });
       case "documents.VersionAccepted":
         return t("cases.events.accepted", { title, version: m.version });
       case "documents.VersionRejected":

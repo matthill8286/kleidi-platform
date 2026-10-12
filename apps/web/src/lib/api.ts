@@ -49,6 +49,14 @@ export type Party = {
   email: string | null;
   phone: string | null;
 };
+export type PortalAccess = {
+  id: string;
+  partyId: string;
+  createdAt: string;
+  lastSeenAt: string | null;
+  revokedAt: string | null;
+};
+
 export type PartyInput = { role: PartyRole; fullName: string; email?: string; phone?: string };
 
 export type CaseDetail = Omit<CaseSummary, "buyers"> & {
@@ -101,6 +109,7 @@ export type DocumentView = {
   title: string;
   requirementKey: string | null;
   visibility: "client" | "firm";
+  requestedFromClient: boolean;
   expiresOn: string | null;
   state: ItemState;
   versions: {
@@ -116,6 +125,7 @@ export type DocumentView = {
     reviewedBy: string | null;
     reviewedAt: string | null;
     uploadedBy: string | null;
+    byClient: boolean;
     createdAt: string;
   }[];
 };
@@ -285,6 +295,22 @@ export const api = {
   addParty: (id: string, version: number, body: PartyInput, key: string) =>
     request<CaseDetail>("POST", `/api/v1/cases/${id}/parties`, body, writeHeaders(key, version)),
   caseDocuments: (id: string) => request<CaseDocuments>("GET", `/api/v1/cases/${id}/documents`),
+  updateParty: (
+    caseId: string,
+    partyId: string,
+    body: { email?: string | null; phone?: string | null },
+  ) => request<void>("PATCH", `/api/v1/cases/${caseId}/parties/${partyId}`, body),
+  portalAccess: (caseId: string) =>
+    request<PortalAccess[]>("GET", `/api/v1/cases/${caseId}/portal`),
+  invitePortal: (caseId: string, partyId: string, locale: string) =>
+    request<void>("POST", `/api/v1/cases/${caseId}/parties/${partyId}/portal`, { locale }),
+  revokePortal: (accessId: string) => request<void>("DELETE", `/api/v1/portal-access/${accessId}`),
+  requestFromClient: (
+    caseId: string,
+    target: { requirementKey: string } | { documentId: string },
+    requested: boolean,
+  ) =>
+    request<void>("POST", `/api/v1/cases/${caseId}/documents/requests`, { ...target, requested }),
   reviewDocument: (versionId: string, body: { decision: "accepted" | "rejected"; note?: string }) =>
     request<void>("POST", `/api/v1/documents/versions/${versionId}/review`, body),
   downloadLink: (versionId: string) =>

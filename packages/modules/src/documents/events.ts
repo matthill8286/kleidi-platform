@@ -9,7 +9,13 @@ type OnCase = {
   requirementKey: string | null;
   title: string;
 };
-type OnVersion = OnCase & { versionId: string; version: number; fileName: string };
+type OnVersion = OnCase & {
+  versionId: string;
+  version: number;
+  fileName: string;
+  // Set when a client sent the file through the portal.
+  client?: string;
+};
 
 export type VersionUploaded = DomainEvent<"documents.VersionUploaded", OnVersion>;
 export type VersionReleased = DomainEvent<"documents.VersionReleased", OnVersion>;
@@ -21,6 +27,10 @@ export type VersionAccepted = DomainEvent<"documents.VersionAccepted", OnVersion
 export type VersionRejected = DomainEvent<
   "documents.VersionRejected",
   OnVersion & { note: string }
+>;
+export type ClientRequestChanged = DomainEvent<
+  "documents.ClientRequestChanged",
+  OnCase & { requested: boolean }
 >;
 export type DocumentUpdated = DomainEvent<
   "documents.DocumentUpdated",
@@ -38,4 +48,5 @@ export type DocumentsEvent =
   | VersionAccepted
   | VersionRejected
   | DocumentUpdated
+  | ClientRequestChanged
   | ExpiryFlagged;

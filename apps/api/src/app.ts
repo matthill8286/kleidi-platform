@@ -1,3 +1,4 @@
+import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
@@ -13,11 +14,14 @@ import {
 import type { Db } from "@kleidi/db";
 import type { ObjectStore } from "@kleidi/modules/documents";
 import type { Auth } from "@kleidi/modules/identity";
+import type { Notifier } from "@kleidi/modules/notifications";
 import { registerAuthRoutes } from "./plugins/auth-routes.ts";
 import { createContext } from "./plugins/context.ts";
 import { registerErrorHandler } from "./plugins/errors.ts";
 import { createIdempotency } from "./plugins/idempotency.ts";
 import { caseRoutes } from "./routes/cases.ts";
+import { clientAccessRoutes } from "./routes/client-access.ts";
+import { portalRoutes } from "./routes/portal.ts";
 import { deadlineRoutes } from "./routes/deadlines.ts";
 import { documentRoutes } from "./routes/documents.ts";
 import { firmRoutes } from "./routes/firms.ts";
@@ -30,6 +34,9 @@ export type AppDeps = {
   db: Db;
   auth: Auth;
   store: ObjectStore;
+  notifier: Notifier;
+  // Production serves over HTTPS, so cookies there are Secure.
+  secureCookies?: boolean;
   webOrigin: string;
   webDist?: string | undefined;
   logger?: boolean;
@@ -52,6 +59,7 @@ export async function buildApp(deps: AppDeps) {
     exposedHeaders: ["etag", "location", "idempotent-replayed"],
   });
   await app.register(rateLimit, { max: 300, timeWindow: "1 minute" });
+  await app.register(cookie);
   await app.register(swagger, {
     openapi: { info: { title: "Kleidi API", version: "0.1.0" } },
     transform: jsonSchemaTransform,
@@ -67,6 +75,21 @@ export async function buildApp(deps: AppDeps) {
   await typed.register(invitationRoutes, { db: deps.db, ctx, prefix: "/api/v1" });
   const idempotent = createIdempotency(deps.db);
   await typed.register(caseRoutes, { db: deps.db, ctx, idempotent, prefix: "/api/v1" });
+  await typed.register(clientAccessRoutes, {
+    db: deps.db,
+    ctx,
+    notifier: deps.notifier,
+    webOrigin: deps.webOrigin,
+    prefix: "/api/v1",
+  });
+  await typed.register(portalRoutes, {
+    db: deps.db,
+    store: deps.store,
+    notifier: deps.notifier,
+    webOrigin: deps.webOrigin,
+    secureCookies: deps.secureCookies ?? false,
+    prefix: "/api/portal",
+  });
   await typed.register(deadlineRoutes, { db: deps.db, ctx, idempotent, prefix: "/api/v1" });
   await typed.register(documentRoutes, {
     db: deps.db,

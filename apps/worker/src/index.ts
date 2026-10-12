@@ -8,8 +8,7 @@ import {
   flagExpiringDocuments,
 } from "@kleidi/modules/documents";
 import {
-  createBrevoNotifier,
-  createSmtpNotifier,
+  createNotifierFromEnv,
   sendDailyDigests,
   type Notifier,
 } from "@kleidi/modules/notifications";
@@ -28,17 +27,7 @@ const env = {
 if (!env.databaseUrl) throw new Error("DATABASE_URL is not set");
 
 const { db, close } = createDb(env.databaseUrl, { max: 5 });
-// Brevo when a key is set (staging and production); otherwise everything lands in Mailpit.
-const notifier: Notifier = process.env.BREVO_API_KEY
-  ? createBrevoNotifier({
-      apiKey: process.env.BREVO_API_KEY,
-      sender: {
-        name: process.env.BREVO_SENDER_NAME ?? "Kleidi",
-        email: process.env.BREVO_SENDER_EMAIL ?? "no-reply@kleidi.cy",
-      },
-      smsSender: process.env.BREVO_SMS_SENDER ?? "Kleidi",
-    })
-  : createSmtpNotifier({ host: env.smtpHost, port: env.smtpPort, from: env.mailFrom });
+const notifier: Notifier = createNotifierFromEnv(process.env);
 const store = createS3Store({
   endpoint: process.env.S3_ENDPOINT ?? "http://localhost:8333",
   publicEndpoint: process.env.S3_ENDPOINT ?? "http://localhost:8333",
@@ -62,9 +51,14 @@ await boss.start();
 for (const consumer of consumers) {
   const queue = queueFor(consumer.name);
   await boss.createQueue(queue, { retryLimit: 5, retryBackoff: true });
-  await boss.work<StoredEvent>(queue, async (jobs) => {
-    for (const job of jobs) await consumer.handle(job.data);
-  });
+  // pg-boss takes one job every two seconds by default; events arrive far faster than that.
+  await boss.work<StoredEvent>(
+    queue,
+    { batchSize: 25, pollingIntervalSeconds: 0.5 },
+    async (jobs) => {
+      for (const job of jobs) await consumer.handle(job.data);
+    },
+  );
 }
 
 const scheduled = [

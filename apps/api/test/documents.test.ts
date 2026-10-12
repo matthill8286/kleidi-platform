@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createDb } from "@kleidi/db";
 import { createAuth } from "@kleidi/modules/identity";
 import { buildApp } from "../src/app.ts";
-import { enrolledUser, TEST_SECRET, testStore, WEB_ORIGIN } from "./helpers.ts";
+import { enrolledUser, TEST_SECRET, testStore, testNotifier, WEB_ORIGIN } from "./helpers.ts";
 
 // Integration: document routes against the local Postgres and object storage.
 describe.skipIf(!process.env.DATABASE_URL)("documents", () => {
@@ -19,7 +19,7 @@ describe.skipIf(!process.env.DATABASE_URL)("documents", () => {
       secret: TEST_SECRET,
       trustedOrigins: [WEB_ORIGIN],
     });
-    app = await buildApp({ db, auth, webOrigin: WEB_ORIGIN, store });
+    app = await buildApp({ db, auth, webOrigin: WEB_ORIGIN, store, notifier: testNotifier() });
   });
   afterAll(async () => {
     await app.close();

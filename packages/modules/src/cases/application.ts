@@ -460,3 +460,60 @@ export async function listActiveCases(tx: Tx) {
     .from(cases)
     .where(inArray(cases.status, ["open", "on_hold"]));
 }
+
+/** Parties by id, for showing who sent something through the portal. */
+export async function findPartiesByIds(tx: Tx, ids: string[]) {
+  if (ids.length === 0) return [];
+  return tx
+    .select({
+      id: caseParties.id,
+      caseId: caseParties.caseId,
+      role: caseParties.role,
+      fullName: caseParties.fullName,
+      email: caseParties.email,
+      phone: caseParties.phone,
+    })
+    .from(caseParties)
+    .where(inArray(caseParties.id, ids));
+}
+
+/** Corrects a party's email or phone, which the portal needs to reach them. */
+export async function updatePartyContact(
+  db: Db,
+  input: {
+    firm: FirmContext;
+    actor: Actor;
+    caseId: string;
+    partyId: string;
+    email?: string | null | undefined;
+    phone?: string | null | undefined;
+  },
+) {
+  return withFirm(db, input.firm.firmId, async (tx) => {
+    const c = await findCase(tx, input.caseId);
+    if (!c) throw new AppError("not_found", "Case not found", "caseNotFound");
+    if (c.status === "completed" || c.status === "cancelled") {
+      throw new AppError("invalid", `A ${c.status} case cannot change`, "caseClosed", {
+        status: c.status,
+      });
+    }
+    const [party] = await tx
+      .update(caseParties)
+      .set({
+        ...(input.email === undefined ? {} : { email: input.email?.trim().toLowerCase() || null }),
+        ...(input.phone === undefined ? {} : { phone: input.phone?.trim() || null }),
+      })
+      .where(and(eq(caseParties.id, input.partyId), eq(caseParties.caseId, c.id)))
+      .returning();
+    if (!party) throw new AppError("not_found", "Party not found", "partyNotFound");
+    await publishEvents(tx, [
+      {
+        type: "cases.PartyContactChanged",
+        firmId: input.firm.firmId,
+        actorUserId: input.actor.userId,
+        payload: { ...entity(c.id, c.reference), partyId: party.id, fullName: party.fullName },
+      },
+    ]);
+    return party;
+  });
+}

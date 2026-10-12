@@ -187,7 +187,7 @@
         "expiring": "Expires soon",
         "expired": "Expired",
         "review": "Waiting for review",
-        "rejected": "Rejected"
+        "rejected": "New one asked for"
       },
       "upload": "Upload",
       "newVersion": "New version",
@@ -207,11 +207,11 @@
       "tooBig": "Files can be at most 25 MB.",
       "missingCount": "{{count}} not done",
       "acceptedBy": "Accepted by {{name}} on {{date}}",
-      "rejectedBy": "Rejected by {{name}}: {{note}}",
-      "awaitingReview": "Waiting for a lawyer to review it.",
+      "rejectedBy": "{{name}} asked for a new one: {{note}}",
+      "awaitingReview": "Sent by the client. Check it and accept it.",
       "accept": "Accept",
-      "reject": "Reject",
-      "rejectReason": "Why is it rejected?"
+      "reject": "Ask for a new one",
+      "rejectReason": "What should the client send instead?"
     }
   },
   "team": {
@@ -314,9 +314,22 @@
     "onlyClosedReopen": "Only a completed or cancelled case can be reopened.",
     "reasonReopen": "Give a reason for reopening.",
     "adminsOnlyReopen": "Only firm admins can reopen a case.",
-    "lawyersOnlyReview": "Only lawyers can accept or reject documents.",
     "reasonReject": "Say why the document is rejected.",
-    "notLatestVersion": "A newer version of this document exists."
+    "notLatestVersion": "A newer version of this document exists.",
+    "notClientFile": "Only a file a client sent needs accepting.",
+    "clientContactNeeded": "Add the client's email and mobile number first.",
+    "partyNotFound": "This party could not be found.",
+    "accessNotFound": "This portal access could not be found.",
+    "linkInvalid": "This link is not valid.",
+    "linkUsed": "This link has already been used. Ask for a new one.",
+    "linkExpired": "This link has expired. Ask for a new one.",
+    "codeNotSent": "Ask for a code first.",
+    "codeExpired": "This code has expired. Ask for a new one.",
+    "codeWrong": "That code is not right. Check the text message and try again.",
+    "tooManyAttempts": "Too many wrong codes. Ask for a new link.",
+    "tooManyCodes": "Too many codes were sent. Ask for a new link.",
+    "privacyNeeded": "Accept the privacy notice to continue.",
+    "consentNotFound": "This sharing permission could not be found."
   },
   "deadlines": {
     "heading": "Deadlines",
@@ -374,5 +387,91 @@
     "security": "Security",
     "twoFactorOn": "Two-factor sign-in is on",
     "securityLead": "You sign in with your password and an authenticator app."
+  },
+  "portal": {
+    "signIn": {
+      "title": "Open your case",
+      "lead": "Enter the email address your lawyer has for you. We will send you a link to sign in.",
+      "send": "Send me a link",
+      "sent": "If this email belongs to a client, a sign-in link is on its way. It works for 30 minutes."
+    },
+    "link": {
+      "hello": "Hello {{name}}",
+      "lead": "{{firm}} uses Kleidi to keep you up to date. We texted a 6-digit code to {{phone}}. Enter it to open your case.",
+      "open": "Open my case",
+      "resend": "Text me a new code",
+      "resent": "A new code is on its way.",
+      "problem": "This link cannot be used",
+      "newLink": "Get a new link"
+    },
+    "privacy": {
+      "title": "Before you continue",
+      "p1": "Your lawyer's firm keeps your case file in Kleidi. You can see the progress of your purchase, the documents your lawyer shares with you, and send documents securely.",
+      "p2": "Your details are stored in the European Union and used only for your case. Every document you send is checked for viruses, and your lawyer sees who sent what and when.",
+      "p3": "You can ask your lawyer for a copy of your data, or for it to be deleted when the law allows.",
+      "accept": "I understand, open my case"
+    },
+    "case": {
+      "now": "Your case is now at: {{stage}}",
+      "completed": "Your purchase is complete."
+    },
+    "docs": {
+      "requests": "What your lawyer needs from you",
+      "title": "Documents",
+      "none": "Nothing has been shared with you yet.",
+      "needed": "Needed",
+      "checking": "Received, checking the file",
+      "withLawyer": "Received, with your lawyer",
+      "accepted": "Accepted",
+      "newNeeded": "Please send a new one",
+      "unusable": "We could not use this file. Please send another copy.",
+      "sentOn": "you sent it on {{date}}",
+      "sendOther": "Send another document",
+      "send": "Send"
+    },
+    "lawyer": {
+      "title": "Your lawyer"
+    },
+    "sharing": {
+      "title": "Who else can follow your case",
+      "lead": "You can let your estate agent, bank or insurer see how your case is progressing. They never see your documents.",
+      "who": "Who",
+      "allow": "Allow",
+      "stop": "Stop sharing",
+      "types": {
+        "agent": "Estate agent",
+        "bank": "Bank",
+        "insurer": "Insurer"
+      }
+    },
+    "firm": {
+      "noContact": "No email or phone yet",
+      "invite": "Invite to portal",
+      "reinvite": "Send a new invitation",
+      "revoke": "Remove access",
+      "revoked": "Portal access removed",
+      "lastSeen": "Portal: last visit {{date}}",
+      "invited": "Portal: invited {{date}}",
+      "editContact": "Edit contact",
+      "phoneHint": "With the country code. Used for the sign-in code.",
+      "inviteLead": "We will email a link to {{email}}. On the first visit we text a code to {{phone}}.",
+      "language": "Language for emails and texts",
+      "send": "Send invitation",
+      "asked": "Asked from client",
+      "ask": "Ask client",
+      "stopAsking": "Stop asking"
+    },
+    "events": {
+      "invited": "invited {{name}} to the portal",
+      "signedIn": "The client signed in to the portal",
+      "revoked": "removed the client's portal access",
+      "privacy": "The client accepted the privacy notice ({{version}})",
+      "consentGranted": "The client let their {{who}} ({{ref}}) follow the case",
+      "consentRevoked": "The client stopped sharing with their {{who}} ({{ref}})",
+      "contact": "updated the contact details for {{name}}",
+      "requested": "asked the client for {{title}}",
+      "unrequested": "stopped asking the client for {{title}}",
+      "clientSent": "{{name}} sent {{title}}"
+    }
   }
 }

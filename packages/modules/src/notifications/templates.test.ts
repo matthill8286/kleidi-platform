@@ -23,6 +23,14 @@ const SAMPLES: { [K in TemplateName]: TemplateData[K] } = {
     date: "20 Oct",
     link: "https://x/c",
   },
+  "portal-invitation": {
+    firmName: "Christou & Co",
+    lawyerName: "Elena",
+    caseReference: "CY-2026-001",
+    link: "https://x/p",
+  },
+  "portal-sign-in": { firmName: "Christou & Co", link: "https://x/p" },
+  "portal-code": { code: "123456" },
   "daily-digest": {
     name: "Elena",
     overdue: [],
@@ -38,7 +46,13 @@ describe("templates", () => {
     for (const name of Object.keys(SAMPLES) as TemplateName[]) {
       const texts = LOCALES.map((locale) => render(name, locale, SAMPLES[name] as never).text);
       expect(new Set(texts).size).toBe(LOCALES.length);
-      if (name !== "firm-invitation") for (const t of texts) expect(t).toContain("CY-2026-001");
+      if (
+        name.startsWith("deadline") ||
+        name.startsWith("document") ||
+        name === "daily-digest" ||
+        name === "portal-invitation"
+      )
+        for (const t of texts) expect(t).toContain("CY-2026-001");
     }
   });
 

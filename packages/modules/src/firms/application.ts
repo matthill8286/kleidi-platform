@@ -63,6 +63,17 @@ export async function listFirmIds(db: Db): Promise<string[]> {
   return rows.map((r) => r.id);
 }
 
+/** A firm's display name, for messages sent on its behalf. */
+export async function getFirmName(db: Db | Tx, firmId: string): Promise<string> {
+  const [row] = await db
+    .select({ name: firms.name })
+    .from(firms)
+    .where(eq(firms.id, firmId))
+    .limit(1);
+  if (!row) throw new AppError("not_found", "Firm not found", "firmNotFound");
+  return row.name;
+}
+
 /** The country a firm practises in, which decides its case template. */
 export async function getFirmJurisdiction(db: Db | Tx, firmId: string): Promise<string> {
   const [row] = await db

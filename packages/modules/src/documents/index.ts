@@ -1,16 +1,20 @@
 export {
+  clientDownloadLink,
   completeUpload,
   downloadLink,
   flagExpiringDocuments,
   listAttentionDocuments,
   listCaseDocuments,
+  listClientDocuments,
   listStageGaps,
   outstandingForCurrentStage,
   requestUpload,
   reviewDocument,
   scanUploadedVersion,
   SCANNER_CONSUMER,
+  setRequestedFromClient,
   updateDocument,
+  type ClientActor,
   type UploadTarget,
 } from "./application.ts";
 export { ALLOWED_TYPES, MAX_UPLOAD_BYTES, type ItemState, type ScanStatus } from "./domain.ts";

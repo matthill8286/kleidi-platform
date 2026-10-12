@@ -2,7 +2,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { createDb, type Db } from "@kleidi/db";
 import { createAuth } from "@kleidi/modules/identity";
 import { buildApp } from "../src/app.ts";
-import { TEST_SECRET, WEB_ORIGIN, testStore } from "./helpers.ts";
+import { TEST_SECRET, WEB_ORIGIN, testStore, testNotifier } from "./helpers.ts";
 
 const unreachableDb = {
   execute: async () => {
@@ -21,6 +21,7 @@ const appWith = (db: Db) =>
     }),
     webOrigin: WEB_ORIGIN,
     store: testStore(),
+    notifier: testNotifier(),
   });
 
 describe("api without a database", () => {

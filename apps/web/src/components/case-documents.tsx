@@ -29,15 +29,7 @@ const STATE_CHIP: Record<ItemState, string> = {
 };
 
 /** The case checklist: current stage open, outstanding items first, each with its files. */
-export function CaseDocumentsCard({
-  caseId,
-  closed,
-  canReview,
-}: {
-  caseId: string;
-  closed: boolean;
-  canReview: boolean;
-}) {
+export function CaseDocumentsCard({ caseId, closed }: { caseId: string; closed: boolean }) {
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? "en";
   const pick = (l: Localised) => l[lang] ?? l.en ?? "";
@@ -110,18 +102,12 @@ export function CaseDocumentsCard({
                         : { requirementKey: item.requirementKey }
                     }
                     closed={closed}
-                    canReview={canReview}
                   />
                 ))}
             </div>
           );
         })}
-      <OtherDocuments
-        caseId={caseId}
-        docs={docs.data.other}
-        closed={closed}
-        canReview={canReview}
-      />
+      <OtherDocuments caseId={caseId} docs={docs.data.other} closed={closed} />
     </section>
   );
 }
@@ -156,7 +142,6 @@ function DocumentRow({
   document,
   target,
   closed,
-  canReview,
 }: {
   caseId: string;
   title: string;
@@ -165,7 +150,6 @@ function DocumentRow({
   document: DocumentView | null;
   target: UploadTarget;
   closed: boolean;
-  canReview: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
@@ -178,6 +162,22 @@ function DocumentRow({
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["case", caseId, "documents"] }),
   });
   const latest = document?.versions[0];
+  // Ask the client for this through their portal, or stop asking.
+  const requested = document?.requestedFromClient ?? false;
+  const ask = useMutation({
+    mutationFn: (value: boolean) =>
+      api.requestFromClient(
+        caseId,
+        target as { requirementKey: string } | { documentId: string },
+        value,
+      ),
+    onSettled: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["case", caseId, "documents"] }),
+        queryClient.invalidateQueries({ queryKey: ["case", caseId, "activity"] }),
+      ]),
+  });
+  const canAsk = !closed && !("title" in target) && state !== "ready" && state !== "expiring";
   const date = (iso: string) =>
     new Date(iso).toLocaleDateString(i18n.resolvedLanguage, {
       day: "numeric",
@@ -201,12 +201,13 @@ function DocumentRow({
 
   return (
     <div className="doc-row">
-      <div style={{ flex: 1, minWidth: 0 }}>
+      <div className="doc-main">
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <b style={{ color: "var(--ink)" }}>{title}</b>
           <span className={`chip ${STATE_CHIP[shownState]}`}>
             {busy ? t("cases.docs.uploading") : t(`cases.docs.states.${shownState}`)}
           </span>
+          {requested && <span className="chip c-blue">{t("portal.firm.asked")}</span>}
         </div>
         {!latest && help && <div className="muted">{help}</div>}
         {latest && (
@@ -265,12 +266,23 @@ function DocumentRow({
             ))}
           </details>
         )}
-        {latest?.scanStatus === "clean" && (
-          <Review caseId={caseId} version={latest} canReview={canReview && !closed} />
+        {/* Only a file a client sent waits for the firm. */}
+        {latest?.scanStatus === "clean" && latest.byClient && (
+          <Review caseId={caseId} version={latest} canReview={!closed} />
         )}
         <ErrorAlert message={tooBig ? t("cases.docs.tooBig") : errorText(upload.error)} />
       </div>
       <div className="doc-actions">
+        {(canAsk || requested) && !closed && (
+          <button
+            type="button"
+            className="btn quiet small"
+            disabled={ask.isPending}
+            onClick={() => ask.mutate(!requested)}
+          >
+            {requested ? t("portal.firm.stopAsking") : t("portal.firm.ask")}
+          </button>
+        )}
         {document && latest && (
           <button
             type="button"
@@ -325,12 +337,10 @@ function OtherDocuments({
   caseId,
   docs,
   closed,
-  canReview,
 }: {
   caseId: string;
   docs: DocumentView[];
   closed: boolean;
-  canReview: boolean;
 }) {
   const { t } = useTranslation();
   const [adding, setAdding] = useState(false);
@@ -369,7 +379,6 @@ function OtherDocuments({
           document={d}
           target={{ documentId: d.id }}
           closed={closed}
-          canReview={canReview}
         />
       ))}
       {docs.length === 0 && !adding && (
@@ -403,8 +412,8 @@ function OtherDocuments({
 }
 
 /**
- * A lawyer's verdict on the latest clean file. Accepting completes the checklist item;
- * rejecting needs a short reason, which is shown until a new version arrives.
+ * The firm's answer to a file a client sent. Accepting completes the checklist item; asking
+ * for a new one needs a short note, which the client sees in their portal.
  */
 function Review({
   caseId,

@@ -21,6 +21,14 @@ export type TemplateData = {
     date: string;
     link: string;
   };
+  "portal-invitation": {
+    firmName: string;
+    lawyerName: string;
+    caseReference: string;
+    link: string;
+  };
+  "portal-sign-in": { firmName: string; link: string };
+  "portal-code": { code: string };
   "daily-digest": {
     name: string;
     overdue: DigestLine[];
@@ -106,6 +114,39 @@ const TEMPLATES: { [K in TemplateName]: Copy<TemplateData[K]> } = {
           : `Скоро истекает: ${d.title} (${d.caseReference})`,
       text: `${d.state === "expired" ? `Срок документа «${d.title}» по делу ${d.caseReference} истёк ${d.date}.` : `Срок документа «${d.title}» по делу ${d.caseReference} истекает ${d.date}.`} Загрузите новую копию, чтобы не задерживать сделку.\n\nОткрыть дело: ${d.link}`,
     }),
+  },
+  "portal-invitation": {
+    en: (d) => ({
+      subject: `Follow your property purchase with ${d.firmName}`,
+      text: `${d.lawyerName} at ${d.firmName} has set up Kleidi for your case ${d.caseReference}. You can follow each step, see documents your lawyer shares and send documents securely.\n\nOpen your case: ${d.link}\n\nWe will text a code to your phone to confirm it is you. The link works for 7 days.`,
+    }),
+    el: (d) => ({
+      subject: `Παρακολουθήστε την αγορά του ακινήτου σας με ${d.firmName}`,
+      text: `${d.lawyerName} από ${d.firmName} ενεργοποίησε το Kleidi για την υπόθεσή σας ${d.caseReference}. Μπορείτε να παρακολουθείτε κάθε βήμα, να βλέπετε έγγραφα που μοιράζεται ο δικηγόρος σας και να στέλνετε έγγραφα με ασφάλεια.\n\nΆνοιγμα υπόθεσης: ${d.link}\n\nΘα στείλουμε έναν κωδικό στο κινητό σας για επιβεβαίωση. Ο σύνδεσμος ισχύει 7 ημέρες.`,
+    }),
+    ru: (d) => ({
+      subject: `Следите за покупкой недвижимости с ${d.firmName}`,
+      text: `${d.lawyerName} из ${d.firmName} подключил(а) Kleidi для вашего дела ${d.caseReference}. Вы сможете следить за каждым этапом, видеть документы от юриста и безопасно отправлять документы.\n\nОткрыть дело: ${d.link}\n\nМы отправим код на ваш телефон для подтверждения. Ссылка действует 7 дней.`,
+    }),
+  },
+  "portal-sign-in": {
+    en: (d) => ({
+      subject: `Your sign-in link for ${d.firmName}`,
+      text: `Open your case: ${d.link}\n\nThe link works for 30 minutes. If you did not ask for it, you can ignore this email.`,
+    }),
+    el: (d) => ({
+      subject: `Ο σύνδεσμος σύνδεσης για ${d.firmName}`,
+      text: `Άνοιγμα υπόθεσης: ${d.link}\n\nΟ σύνδεσμος ισχύει 30 λεπτά. Αν δεν τον ζητήσατε, αγνοήστε αυτό το email.`,
+    }),
+    ru: (d) => ({
+      subject: `Ссылка для входа: ${d.firmName}`,
+      text: `Открыть дело: ${d.link}\n\nСсылка действует 30 минут. Если вы её не запрашивали, просто проигнорируйте письмо.`,
+    }),
+  },
+  "portal-code": {
+    en: (d) => ({ subject: "", text: `Your Kleidi code is ${d.code}. It expires in 10 minutes.` }),
+    el: (d) => ({ subject: "", text: `Ο κωδικός σας Kleidi είναι ${d.code}. Λήγει σε 10 λεπτά.` }),
+    ru: (d) => ({ subject: "", text: `Ваш код Kleidi: ${d.code}. Действует 10 минут.` }),
   },
   "daily-digest": {
     en: (d) => ({

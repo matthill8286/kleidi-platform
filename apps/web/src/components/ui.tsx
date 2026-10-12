@@ -94,7 +94,8 @@ export const ErrorAlert = ({ message }: { message: string | null }) =>
     </div>
   ) : null;
 
-export function LanguageSwitch() {
+/** Switches language. Signed in, the choice is saved, so emails follow it too. */
+export function LanguageSwitch({ onPick }: { onPick?: (locale: string) => Promise<unknown> }) {
   const { i18n } = useTranslation();
   return (
     <span className="seg" aria-label="Language">
@@ -106,8 +107,8 @@ export function LanguageSwitch() {
           title={LOCALE_NAMES[l]}
           onClick={() => {
             void i18n.changeLanguage(l);
-            // Emails follow the saved language. Signed out, this fails quietly.
-            void api.updateMe({ locale: l }).catch(() => undefined);
+            // Signed out, saving fails quietly.
+            void (onPick ? onPick(l) : api.updateMe({ locale: l })).catch(() => undefined);
           }}
         >
           {l === "el" ? "ΕΛ" : l.toUpperCase()}

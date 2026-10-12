@@ -1,4 +1,5 @@
 export { createBrevoNotifier, type BrevoConfig } from "./brevo.ts";
+export { createNotifierFromEnv } from "./from-env.ts";
 export {
   deliver,
   NOTIFICATIONS_CONSUMER,

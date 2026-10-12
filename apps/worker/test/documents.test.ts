@@ -12,8 +12,10 @@ import {
   downloadLink,
   flagExpiringDocuments,
   listCaseDocuments,
+  listClientDocuments,
   requestUpload,
   reviewDocument,
+  setRequestedFromClient,
   scanUploadedVersion,
   type Scanner,
 } from "@kleidi/modules/documents";
@@ -142,8 +144,8 @@ describe.skipIf(!process.env.DATABASE_URL || !process.env.DATABASE_ADMIN_URL)(
       const docs = await listCaseDocuments(db, ctx.firm.firmId, caseId);
       const dd = docs.stages.find((s) => s.key === "due_diligence")!;
       const state = (key: string) => dd.items.find((i) => i.requirementKey === key)!.state;
-      // A clean file waits for a lawyer before its item counts as done.
-      expect(state("title_deed")).toBe("review");
+      // The firm's own clean file counts as done straight away.
+      expect(state("title_deed")).toBe("ready");
       expect(state("planning_zone")).toBe("infected");
       // Items needing attention sit above finished ones.
       expect(dd.items.findIndex((i) => i.requirementKey === "planning_zone")).toBeLessThan(
@@ -151,30 +153,54 @@ describe.skipIf(!process.env.DATABASE_URL || !process.env.DATABASE_ADMIN_URL)(
       );
     });
 
-    it("needs a lawyer to accept a clean file, and a reason to reject one", async () => {
-      const doc = await upload("developer", "Company search for the developer.");
-      await scanUploadedVersion(db, store, scanner, await uploadedEvent(doc.link.versionId));
+    it("holds a client's file until the firm accepts it or asks for a new one", async () => {
+      const [buyer] = await admin.db
+        .select()
+        .from(schema.caseParties)
+        .where(eq(schema.caseParties.caseId, caseId));
+      const client = { partyId: buyer!.id, name: buyer!.fullName };
+      const { documentId } = await setRequestedFromClient(db, {
+        ...ctx,
+        caseId,
+        target: { requirementKey: "funds" },
+        requested: true,
+      });
+      const bytes = Buffer.from("Bank statement showing the deposit.");
+      const link = await requestUpload(db, store, {
+        firm: ctx.firm,
+        actor: client,
+        caseId,
+        target: { documentId },
+        fileName: "statement.txt",
+        mimeType: "text/plain",
+        byteSize: bytes.length,
+      });
+      await fetch(link.uploadUrl, { method: "PUT", headers: link.uploadHeaders, body: bytes });
+      await completeUpload(db, store, { firm: ctx.firm, actor: client, versionId: link.versionId });
+      await scanUploadedVersion(db, store, scanner, await uploadedEvent(link.versionId));
       const state = async () =>
         (await listCaseDocuments(db, ctx.firm.firmId, caseId)).stages
           .flatMap((s) => s.items)
-          .find((i) => i.requirementKey === "developer")!.state;
+          .find((i) => i.requirementKey === "funds")!.state;
       expect(await state()).toBe("review");
 
-      const staff = { ...ctx, firm: { ...ctx.firm, role: "staff" as const } };
       await expect(
-        reviewDocument(db, { ...staff, versionId: doc.link.versionId, decision: "accepted" }),
-      ).rejects.toThrow(/Only lawyers/);
-      await expect(
-        reviewDocument(db, { ...ctx, versionId: doc.link.versionId, decision: "rejected" }),
+        reviewDocument(db, { ...ctx, versionId: link.versionId, decision: "rejected" }),
       ).rejects.toThrow(/why/);
       await reviewDocument(db, {
         ...ctx,
-        versionId: doc.link.versionId,
+        versionId: link.versionId,
         decision: "rejected",
-        note: "Search is for the wrong company",
+        note: "The statement must show the account holder's name",
       });
       expect(await state()).toBe("rejected");
-      await reviewDocument(db, { ...ctx, versionId: doc.link.versionId, decision: "accepted" });
+      const seen = await listClientDocuments(db, ctx.firm.firmId, caseId, buyer!.id);
+      expect(seen.find((d) => d.id === documentId)!.latest).toMatchObject({
+        fromYou: true,
+        review: "rejected",
+        reviewNote: "The statement must show the account holder's name",
+      });
+      await reviewDocument(db, { ...ctx, versionId: link.versionId, decision: "accepted" });
       expect(await state()).toBe("ready");
     });
 

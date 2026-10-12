@@ -43,6 +43,20 @@
       "when": 1791794355634,
       "tag": "0005_charming_starbolt",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791795164743,
+      "tag": "0006_conscious_christian_walker",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791795305373,
+      "tag": "0007_firm_files_accepted",
+      "breakpoints": true
     }
   ]
 }

@@ -1,5 +1,6 @@
 import { createDb } from "@kleidi/db";
 import { createS3Store } from "@kleidi/modules/documents";
+import { createNotifierFromEnv } from "@kleidi/modules/notifications";
 import { createAuth } from "@kleidi/modules/identity";
 import { buildApp } from "./app.ts";
 import { loadEnv, storageConfig } from "./env.ts";
@@ -18,6 +19,8 @@ const app = await buildApp({
   db,
   auth,
   store,
+  notifier: createNotifierFromEnv(process.env),
+  secureCookies: env.NODE_ENV === "production",
   webOrigin: env.WEB_ORIGIN,
   webDist: env.WEB_DIST,
   logger: true,

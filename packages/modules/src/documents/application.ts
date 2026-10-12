@@ -2,7 +2,7 @@ import { and, desc, eq, inArray, isNotNull, ne, or } from "drizzle-orm";
 import { handleOnce, publishEvents, withFirm, type Db, type Tx } from "@kleidi/db";
 import { documents, documentVersions } from "@kleidi/db/schema/documents";
 import { AppError, systemClock, type Clock, type StoredEvent } from "@kleidi/kernel";
-import { findCase, listActiveCases } from "../cases/index.ts";
+import { findCase, findPartiesByIds, listActiveCases } from "../cases/index.ts";
 import type { Actor, FirmContext } from "../firms/index.ts";
 import { listFirmIds } from "../firms/index.ts";
 import { findUsersByIds } from "../identity/index.ts";
@@ -20,6 +20,7 @@ import {
 import type {
   DocumentUpdated,
   ExpiryFlagged,
+  ClientRequestChanged,
   VersionAccepted,
   VersionQuarantined,
   VersionRejected,
@@ -33,6 +34,10 @@ import type { ObjectStore } from "./storage.ts";
 export const SCANNER_CONSUMER = "scanner";
 const UPLOAD_LINK_SECONDS = 15 * 60;
 const DOWNLOAD_LINK_SECONDS = 5 * 60;
+
+/** A client uploading through the portal: a case party, not a firm user. */
+export type ClientActor = { partyId: string; name: string };
+const isClient = (a: Actor | ClientActor): a is ClientActor => "partyId" in a;
 
 export type UploadTarget = { requirementKey: string } | { documentId: string } | { title: string };
 
@@ -67,6 +72,8 @@ async function targetDocument(
   caseId: string,
   jurisdiction: string,
   target: UploadTarget,
+  // A document a client starts is theirs to see.
+  visibility: "client" | "firm" = "firm",
 ) {
   if ("documentId" in target) {
     const [doc] = await tx
@@ -92,7 +99,10 @@ async function targetDocument(
   }
   const title = target.title.trim();
   if (title.length < 2) throw new AppError("invalid", "Give the document a title", "documentTitle");
-  const [doc] = await tx.insert(documents).values({ firmId, caseId, title }).returning();
+  const [doc] = await tx
+    .insert(documents)
+    .values({ firmId, caseId, title, visibility })
+    .returning();
   return doc!;
 }
 
@@ -104,8 +114,8 @@ export async function requestUpload(
   db: Db,
   store: ObjectStore,
   input: {
-    firm: FirmContext;
-    actor: Actor;
+    firm: { firmId: string };
+    actor: Actor | ClientActor;
     caseId: string;
     target: UploadTarget;
     fileName: string;
@@ -115,6 +125,11 @@ export async function requestUpload(
 ) {
   const problem = uploadProblem(input);
   if (problem) throw AppError.from("invalid", problem);
+  const client = isClient(input.actor) ? input.actor : null;
+  // Clients answer the lawyer's requests or send something new; they never pick a checklist item.
+  if (client && "requirementKey" in input.target) {
+    throw new AppError("not_found", "Document not found", "documentNotFound");
+  }
 
   const created = await withFirm(db, input.firm.firmId, async (tx) => {
     const c = await caseOrThrow(tx, input.caseId);
@@ -126,7 +141,11 @@ export async function requestUpload(
       c.id,
       c.jurisdictionCode,
       input.target,
+      client ? "client" : "firm",
     );
+    if (client && !doc.requestedFromClient && doc.visibility !== "client") {
+      throw new AppError("not_found", "Document not found", "documentNotFound");
+    }
     const version = doc.latestVersion + 1;
     await tx.update(documents).set({ latestVersion: version }).where(eq(documents.id, doc.id));
     const versionId = crypto.randomUUID();
@@ -140,7 +159,8 @@ export async function requestUpload(
       mimeType: input.mimeType,
       byteSize: input.byteSize,
       objectKey: key,
-      uploadedById: input.actor.userId,
+      uploadedById: client ? null : (input.actor as Actor).userId,
+      uploadedByPartyId: client?.partyId ?? null,
     });
     return { documentId: doc.id, versionId, version, key };
   });
@@ -165,13 +185,14 @@ export async function completeUpload(
   db: Db,
   store: ObjectStore,
   input: {
-    firm: FirmContext;
-    actor: Actor;
+    firm: { firmId: string };
+    actor: Actor | ClientActor;
     versionId: string;
     expiresOn?: string | null | undefined;
   },
   clock: Clock = systemClock,
 ) {
+  const client = isClient(input.actor) ? input.actor : null;
   return withFirm(db, input.firm.firmId, async (tx) => {
     const [row] = await tx
       .select({ v: documentVersions, d: documents })
@@ -181,6 +202,10 @@ export async function completeUpload(
       .for("update");
     if (!row) throw new AppError("not_found", "Upload not found", "uploadNotFound");
     const { v, d } = row;
+    // A client can only confirm their own upload.
+    if (client && v.uploadedByPartyId !== client.partyId) {
+      throw new AppError("not_found", "Upload not found", "uploadNotFound");
+    }
     // Completing twice is harmless: the second call changes nothing.
     if (v.scanStatus !== "uploading")
       return { documentId: d.id, versionId: v.id, scanStatus: v.scanStatus };
@@ -221,7 +246,7 @@ export async function completeUpload(
     const uploaded: VersionUploaded = {
       type: "documents.VersionUploaded",
       firmId: input.firm.firmId,
-      actorUserId: input.actor.userId,
+      actorUserId: client ? null : (input.actor as Actor).userId,
       payload: {
         entityType: "case",
         entityId: d.caseId,
@@ -231,6 +256,7 @@ export async function completeUpload(
         versionId: v.id,
         version: v.version,
         fileName: v.fileName,
+        ...(client ? { client: client.name } : {}),
       },
     };
     await publishEvents(tx, [uploaded]);
@@ -275,7 +301,14 @@ export async function scanUploadedVersion(
         if (!alreadyReleased) await store.move(v.objectKey, target);
         await tx
           .update(documentVersions)
-          .set({ scanStatus: "clean", objectKey: target, scannedAt: clock.now(), scanDetail: null })
+          .set({
+            scanStatus: "clean",
+            objectKey: target,
+            scannedAt: clock.now(),
+            scanDetail: null,
+            // The firm chose its own files; only a client's file waits for the lawyer.
+            ...(v.uploadedByPartyId ? {} : { review: "accepted" as const }),
+          })
           .where(eq(documentVersions.id, v.id));
         const released: VersionReleased = { ...base, type: "documents.VersionReleased", payload };
         await publishEvents(tx, [released]);
@@ -391,11 +424,18 @@ export async function listCaseDocuments(
     return { c, docs, versions };
   });
   const template = await getTemplate(db, c.jurisdictionCode);
-  const peopleIds = versions.flatMap((v) =>
-    v.reviewedById ? [v.uploadedById, v.reviewedById] : [v.uploadedById],
-  );
+  const peopleIds = versions.flatMap((v) => [v.uploadedById, v.reviewedById]);
   const people = new Map(
-    (await findUsersByIds(db, [...new Set(peopleIds)])).map((u) => [u.id, u.name]),
+    (await findUsersByIds(db, [...new Set(peopleIds.filter((x): x is string => Boolean(x)))])).map(
+      (u) => [u.id, u.name],
+    ),
+  );
+  const partyIds = versions.flatMap((v) => (v.uploadedByPartyId ? [v.uploadedByPartyId] : []));
+  const parties = new Map(
+    (await withFirm(db, firmId, (tx) => findPartiesByIds(tx, [...new Set(partyIds)]))).map((p) => [
+      p.id,
+      p.fullName,
+    ]),
   );
 
   const view = (d: (typeof docs)[number]) => {
@@ -407,6 +447,7 @@ export async function listCaseDocuments(
       title: d.title,
       requirementKey: d.requirementKey,
       visibility: d.visibility,
+      requestedFromClient: d.requestedFromClient,
       expiresOn: d.expiresOn,
       state: itemState(latest, d.expiresOn, today),
       versions: history.map((v: VersionRow) => ({
@@ -421,7 +462,10 @@ export async function listCaseDocuments(
         reviewNote: v.reviewNote,
         reviewedBy: v.reviewedById ? (people.get(v.reviewedById) ?? null) : null,
         reviewedAt: v.reviewedAt,
-        uploadedBy: people.get(v.uploadedById) ?? null,
+        uploadedBy: v.uploadedById
+          ? (people.get(v.uploadedById) ?? null)
+          : (parties.get(v.uploadedByPartyId ?? "") ?? null),
+        byClient: v.uploadedByPartyId !== null,
         createdAt: v.createdAt,
       })),
     };
@@ -603,8 +647,8 @@ export async function listStageGaps(db: Db, firmId: string) {
 }
 
 /**
- * A lawyer's verdict on a clean file. Accepting completes its checklist item; rejecting
- * keeps the item open and says why, so a new version can be asked for.
+ * The firm's answer to a file a client sent. Accepting completes its checklist item; asking
+ * for a new one keeps it open, and the note tells the client what is wrong.
  */
 export async function reviewDocument(
   db: Db,
@@ -617,13 +661,6 @@ export async function reviewDocument(
   },
   clock: Clock = systemClock,
 ) {
-  if (input.firm.role === "staff") {
-    throw new AppError(
-      "forbidden",
-      "Only lawyers can accept or reject documents",
-      "lawyersOnlyReview",
-    );
-  }
   const note = input.note?.trim() || null;
   if (input.decision === "rejected" && (!note || note.length < 3)) {
     throw new AppError("invalid", "Say why the document is rejected", "reasonReject");
@@ -640,6 +677,9 @@ export async function reviewDocument(
     assertOpen(await caseOrThrow(tx, d.caseId));
     if (v.scanStatus !== "clean") {
       throw new AppError("conflict", "This file is still being checked", "fileScanning");
+    }
+    if (!v.uploadedByPartyId) {
+      throw new AppError("conflict", "Only a client's file needs accepting", "notClientFile");
     }
     if (v.version !== d.latestVersion) {
       throw new AppError("conflict", "A newer version of this document exists", "notLatestVersion");
@@ -673,4 +713,130 @@ export async function reviewDocument(
         : { ...base, type: "documents.VersionRejected", payload: { ...base.payload, note: note! } };
     await publishEvents(tx, [event]);
   });
+}
+
+/** Asks the client for a checklist item or an existing document, or withdraws the request. */
+export async function setRequestedFromClient(
+  db: Db,
+  input: {
+    firm: FirmContext;
+    actor: Actor;
+    caseId: string;
+    target: { requirementKey: string } | { documentId: string };
+    requested: boolean;
+  },
+) {
+  return withFirm(db, input.firm.firmId, async (tx) => {
+    const c = await caseOrThrow(tx, input.caseId);
+    assertOpen(c);
+    const doc = await targetDocument(
+      db,
+      tx,
+      input.firm.firmId,
+      c.id,
+      c.jurisdictionCode,
+      input.target,
+    );
+    await tx
+      .update(documents)
+      .set({ requestedFromClient: input.requested })
+      .where(eq(documents.id, doc.id));
+    const event: ClientRequestChanged = {
+      type: "documents.ClientRequestChanged",
+      firmId: input.firm.firmId,
+      actorUserId: input.actor.userId,
+      payload: {
+        entityType: "case",
+        entityId: c.id,
+        documentId: doc.id,
+        requirementKey: doc.requirementKey,
+        title: doc.title,
+        requested: input.requested,
+      },
+    };
+    await publishEvents(tx, [event]);
+    return { documentId: doc.id };
+  });
+}
+
+/**
+ * What a client may see of a case's documents: files the lawyer shared with them, and the
+ * items the lawyer asked them for, with only their own uploads. Nothing else leaves the firm.
+ */
+export async function listClientDocuments(db: Db, firmId: string, caseId: string, partyId: string) {
+  return withFirm(db, firmId, async (tx) => {
+    const docs = await tx
+      .select()
+      .from(documents)
+      .where(
+        and(
+          eq(documents.caseId, caseId),
+          or(eq(documents.visibility, "client"), eq(documents.requestedFromClient, true)),
+        ),
+      );
+    const versions = docs.length
+      ? await tx
+          .select()
+          .from(documentVersions)
+          .where(
+            inArray(
+              documentVersions.documentId,
+              docs.map((d) => d.id),
+            ),
+          )
+          .orderBy(desc(documentVersions.version))
+      : [];
+    return docs.map((d) => {
+      // A shared document shows its files; a firm-only request shows only the client's own.
+      const visible = versions.filter(
+        (v) =>
+          v.documentId === d.id &&
+          v.scanStatus !== "uploading" &&
+          (d.visibility === "client" || v.uploadedByPartyId === partyId),
+      );
+      const latest = visible[0] ?? null;
+      return {
+        id: d.id,
+        title: d.title,
+        requirementKey: d.requirementKey,
+        requested: d.requestedFromClient,
+        latest: latest && {
+          id: latest.id,
+          fileName: latest.fileName,
+          createdAt: latest.createdAt,
+          fromYou: latest.uploadedByPartyId === partyId,
+          scanStatus: latest.scanStatus,
+          review: latest.review,
+          // A rejection reason is shown only on the client's own file.
+          reviewNote: latest.uploadedByPartyId === partyId ? latest.reviewNote : null,
+          downloadable: latest.scanStatus === "clean",
+        },
+      };
+    });
+  });
+}
+
+/** A download link for a client, under the same rule as the list. Anything else is "not found". */
+export async function clientDownloadLink(
+  db: Db,
+  store: ObjectStore,
+  input: { firmId: string; caseId: string; partyId: string; versionId: string },
+) {
+  const row = await withFirm(db, input.firmId, async (tx) => {
+    const [r] = await tx
+      .select({ v: documentVersions, d: documents })
+      .from(documentVersions)
+      .innerJoin(documents, eq(documents.id, documentVersions.documentId))
+      .where(eq(documentVersions.id, input.versionId))
+      .limit(1);
+    return r;
+  });
+  const allowed =
+    row &&
+    row.d.caseId === input.caseId &&
+    row.v.scanStatus === "clean" &&
+    (row.d.visibility === "client" ||
+      (row.d.requestedFromClient && row.v.uploadedByPartyId === input.partyId));
+  if (!allowed) throw new AppError("not_found", "Document not found", "documentNotFound");
+  return { url: await store.signDownload(row.v.objectKey, row.v.fileName, DOWNLOAD_LINK_SECONDS) };
 }
