@@ -3,7 +3,7 @@ import { createS3Store } from "@kleidi/modules/documents";
 import { asLocale, createNotifierFromEnv } from "@kleidi/modules/notifications";
 import { createAuth } from "@kleidi/modules/identity";
 import { buildApp } from "./app.ts";
-import { loadEnv, storageConfig } from "./env.ts";
+import { firmCreators, loadEnv, storageConfig } from "./env.ts";
 
 const env = loadEnv();
 const { db, close } = createDb(env.DATABASE_URL);
@@ -35,9 +35,7 @@ const app = await buildApp({
   rateLimitPerMinute: env.RATE_LIMIT_PER_MINUTE,
   trustedProxies: env.TRUSTED_PROXIES,
   production: env.NODE_ENV === "production",
-  firmCreators: env.FIRM_CREATORS?.split(",")
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean),
+  firmCreators: firmCreators(env),
   webOrigin: env.WEB_ORIGIN,
   webDist: env.WEB_DIST,
   logger: true,

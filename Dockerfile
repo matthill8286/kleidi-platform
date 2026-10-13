@@ -42,7 +42,8 @@ ENV CLAMD_HOST=127.0.0.1 CLAMD_PORT=3310 PORT=8080
 WORKDIR /app/apps/worker
 CMD ["worker-entrypoint"]
 
-# Runs once per release, before the new api and worker start.
+# Runs once per release, before the new api and worker start: migrations and policies, then
+# the reference data (countries, stages, checklists), which skips rows already there.
 FROM runtime AS migrate
 WORKDIR /app/packages/db
-CMD ["node", "src/migrate.ts"]
+CMD ["sh", "-c", "node src/migrate.ts && node src/seed.ts"]

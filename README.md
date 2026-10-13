@@ -49,7 +49,7 @@ Test packages run one at a time because they share that database.
 
 ## Production image
 
-One `Dockerfile` builds three targets: `api` (also serves the web app), `worker` (with ClamAV inside) and `migrate`. See `docs/runbook.md` for deploying to Scaleway, `docs/hardening-report.md` for the launch checks, and `docs/pilot-onboarding.md` for bringing a firm on.
+One `Dockerfile` builds three targets: `api` (also serves the web app), `worker` (with ClamAV inside) and `migrate`. See `docs/server.md` for the cheap one-server deployment used for the demo, `docs/runbook.md` for the managed Scaleway set-up for the pilot, `docs/hardening-report.md` for the launch checks, and `docs/pilot-onboarding.md` for bringing a firm on.
 
 ```bash
 docker build --target api -t kleidi-api .

@@ -1,0 +1,142 @@
+# Kleidi on one server. Everything runs here; only Caddy is reachable from the internet.
+# Values come from /opt/kleidi/.env, which the deploy workflow writes from GitHub secrets.
+# Runs on any Linux server with Docker, 2 vCPU and 4 GB: a Scaleway DEV1-M today.
+name: kleidi
+
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: kleidi_admin
+      POSTGRES_PASSWORD: ${DB_ADMIN_PASSWORD:?}
+      POSTGRES_DB: kleidi
+      KLEIDI_APP_PASSWORD: ${DB_APP_PASSWORD:?}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres-init.sh:/docker-entrypoint-initdb.d/01-app-role.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kleidi_admin -d kleidi"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # Document storage on the server's disk. Every request needs a signature from these keys.
+  storage:
+    image: chrislusf/seaweedfs:3.97
+    restart: unless-stopped
+    command: server -s3 -s3.config=/etc/seaweedfs/s3.json -dir=/data -ip.bind=0.0.0.0
+    volumes:
+      - storage-data:/data
+      - ./s3.json:/etc/seaweedfs/s3.json:ro
+
+  # Runs once per release, before the api and worker start.
+  migrate:
+    image: kleidi-migrate:${IMAGE_TAG:?}
+    environment:
+      DATABASE_ADMIN_URL: postgres://kleidi_admin:${DB_ADMIN_PASSWORD}@postgres:5432/kleidi
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles: [release]
+
+  api:
+    image: kleidi-api:${IMAGE_TAG:?}
+    restart: unless-stopped
+    environment: &app-env
+      NODE_ENV: production
+      DATABASE_URL: postgres://kleidi_app:${DB_APP_PASSWORD}@postgres:5432/kleidi
+      BETTER_AUTH_SECRET: ${AUTH_SECRET:?}
+      WEB_ORIGIN: ${PUBLIC_URL:?}
+      S3_ENDPOINT: http://storage:8333
+      # Browsers upload through Caddy on the app's own address.
+      S3_PUBLIC_ENDPOINT: ${PUBLIC_URL}
+      S3_REGION: local
+      S3_BUCKET: kleidi-documents
+      S3_ACCESS_KEY: ${STORAGE_ACCESS_KEY:?}
+      S3_SECRET_KEY: ${STORAGE_SECRET_KEY:?}
+      # Brevo sends email and SMS; without a key they go to SMTP_HOST (Mailpit in a trial run).
+      BREVO_API_KEY: ${BREVO_API_KEY:-}
+      SMTP_HOST: ${SMTP_HOST:-localhost}
+      BREVO_SENDER_EMAIL: ${MAIL_FROM_ADDRESS:-no-reply@kleidi.cy}
+      TRUSTED_PROXIES: "1"
+      FIRM_CREATORS: ${FIRM_CREATORS:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      storage:
+        condition: service_started
+
+  worker:
+    image: kleidi-worker:${IMAGE_TAG:?}
+    restart: unless-stopped
+    environment: *app-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      storage:
+        condition: service_started
+
+  # Nightly database dump to the server's disk; the offsite service copies it away.
+  backup:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      PGPASSWORD: ${DB_ADMIN_PASSWORD}
+    volumes:
+      - ./backups:/backups
+      - ./backup.sh:/backup.sh:ro
+    entrypoint: ["/bin/sh", "/backup.sh"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Copies the nightly dumps and every document to an object storage bucket elsewhere,
+  # so losing the server loses nothing. Skipped when no backup bucket is configured.
+  offsite:
+    image: rclone/rclone:1.71
+    restart: unless-stopped
+    environment:
+      BACKUP_BUCKET: ${BACKUP_BUCKET:-}
+      RCLONE_CONFIG_LOCAL_TYPE: s3
+      RCLONE_CONFIG_LOCAL_PROVIDER: SeaweedFS
+      RCLONE_CONFIG_LOCAL_ENDPOINT: http://storage:8333
+      RCLONE_CONFIG_LOCAL_ACCESS_KEY_ID: ${STORAGE_ACCESS_KEY}
+      RCLONE_CONFIG_LOCAL_SECRET_ACCESS_KEY: ${STORAGE_SECRET_KEY}
+      RCLONE_CONFIG_REMOTE_TYPE: s3
+      RCLONE_CONFIG_REMOTE_PROVIDER: Scaleway
+      RCLONE_CONFIG_REMOTE_ENDPOINT: ${BACKUP_ENDPOINT:-https://s3.fr-par.scw.cloud}
+      RCLONE_CONFIG_REMOTE_REGION: ${BACKUP_REGION:-fr-par}
+      RCLONE_CONFIG_REMOTE_ACCESS_KEY_ID: ${BACKUP_ACCESS_KEY:-}
+      RCLONE_CONFIG_REMOTE_SECRET_ACCESS_KEY: ${BACKUP_SECRET_KEY:-}
+    volumes:
+      - ./backups:/backups:ro
+      - ./offsite.sh:/offsite.sh:ro
+    entrypoint: ["/bin/sh", "/offsite.sh"]
+    depends_on:
+      - storage
+
+  caddy:
+    image: caddy:2.10
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+      - "${HTTPS_PORT:-443}:443/udp"
+    environment:
+      # The public hostname in production; http://localhost:8088 for a local trial run.
+      SITE_ADDRESS: ${SITE_ADDRESS:?}
+      ACME_EMAIL: ${ACME_EMAIL:-admin@example.com}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - api
+      - storage
+
+volumes:
+  postgres-data:
+  storage-data:
+  caddy-data:
+  caddy-config:

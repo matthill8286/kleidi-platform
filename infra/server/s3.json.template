@@ -1,0 +1,9 @@
+{
+  "identities": [
+    {
+      "name": "kleidi",
+      "credentials": [{ "accessKey": "${STORAGE_ACCESS_KEY}", "secretKey": "${STORAGE_SECRET_KEY}" }],
+      "actions": ["Admin", "Read", "List", "Tagging", "Write"]
+    }
+  ]
+}

@@ -40,7 +40,7 @@ jobs:
       - name: Start object storage
         run: |
           docker run -d -p 8333:8333 chrislusf/seaweedfs:latest server -s3 -dir=/data -ip.bind=0.0.0.0
-          for i in $(seq 1 30); do curl -sf http://localhost:8333/ >/dev/null && break; sleep 2; done
+          for _ in $(seq 1 30); do curl -sf http://localhost:8333/ >/dev/null && break; sleep 2; done
       - name: Create the app role
         run: psql "$DATABASE_ADMIN_URL" -f infra/docker/postgres-init.sql
       - run: pnpm db:migrate

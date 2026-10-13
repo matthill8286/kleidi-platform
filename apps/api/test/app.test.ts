@@ -2,6 +2,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { createDb, type Db } from "@kleidi/db";
 import { createAuth } from "@kleidi/modules/identity";
 import { buildApp } from "../src/app.ts";
+import { firmCreators, type Env } from "../src/env.ts";
 import {
   TEST_SECRET,
   WEB_ORIGIN,
@@ -78,5 +79,20 @@ describe.skipIf(!process.env.DATABASE_URL)("api with the database", () => {
     expect(body.stages.at(-1).key).toBe("completed");
     expect(body.requirements.map((r: { key: string }) => r.key)).toContain("deposited_contract");
     await app.close();
+  });
+});
+
+describe("firm creators", () => {
+  const env = (FIRM_CREATORS?: string) => ({ ...({} as Env), FIRM_CREATORS });
+  it("lets anyone create a firm when the list is unset or empty", () => {
+    expect(firmCreators(env())).toBeUndefined();
+    expect(firmCreators(env(""))).toBeUndefined();
+    expect(firmCreators(env(" , "))).toBeUndefined();
+  });
+  it("reads a comma-separated list, ignoring case and spaces", () => {
+    expect(firmCreators(env(" Admin@Firm.cy, other@firm.cy "))).toEqual([
+      "admin@firm.cy",
+      "other@firm.cy",
+    ]);
   });
 });

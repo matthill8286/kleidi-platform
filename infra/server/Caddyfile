@@ -1,0 +1,25 @@
+{
+	email {$ACME_EMAIL}
+}
+
+{$SITE_ADDRESS} {
+	encode zstd gzip
+
+	# Signed uploads and downloads go straight to storage. Caddy keeps the Host header, so the
+	# signature the API made for this address still matches.
+	@documents path /kleidi-documents/*
+	handle @documents {
+		@allowed method GET HEAD PUT
+		handle @allowed {
+			request_body {
+				max_size 26MB
+			}
+			reverse_proxy storage:8333
+		}
+		respond 405
+	}
+
+	handle {
+		reverse_proxy api:8080
+	}
+}

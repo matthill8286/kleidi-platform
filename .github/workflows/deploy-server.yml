@@ -1,0 +1,112 @@
+name: Deploy to server
+
+# Deploys to the single server (docs/server.md): builds the images for this commit, sends them
+# over SSH, migrates the database and restarts the services.
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Which environment's server to deploy to
+        required: true
+        default: staging
+        type: choice
+        options: [staging, prod]
+
+concurrency: deploy-server-${{ inputs.environment }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    env:
+      TAG: ${{ github.sha }}
+      TARGET: deploy@${{ vars.SERVER_HOST }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check the settings are in place
+        env:
+          SERVER_HOST: ${{ vars.SERVER_HOST }}
+          APP_HOSTNAME: ${{ vars.APP_HOSTNAME }}
+          ACME_EMAIL: ${{ vars.ACME_EMAIL }}
+          SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+        run: |
+          missing=0
+          for v in SERVER_HOST APP_HOSTNAME ACME_EMAIL SERVER_SSH_KEY BREVO_API_KEY STORAGE_ACCESS_KEY; do
+            [ -n "${!v}" ] || { echo "::error::$v is not set for this environment"; missing=1; }
+          done
+          exit $missing
+
+      - name: Build the images
+        run: |
+          for target in api worker migrate; do
+            docker build --target "$target" -t "kleidi-$target:$TAG" .
+          done
+
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${{ vars.SERVER_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Send the images to the server
+        run: |
+          docker save "kleidi-api:$TAG" "kleidi-worker:$TAG" "kleidi-migrate:$TAG" \
+            | gzip | ssh "$TARGET" 'gunzip | docker load'
+
+      - name: Send the configuration
+        env:
+          DB_ADMIN_PASSWORD: ${{ secrets.DB_ADMIN_PASSWORD }}
+          DB_APP_PASSWORD: ${{ secrets.DB_APP_PASSWORD }}
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+          BACKUP_ACCESS_KEY: ${{ secrets.BACKUP_ACCESS_KEY }}
+          BACKUP_SECRET_KEY: ${{ secrets.BACKUP_SECRET_KEY }}
+        run: |
+          umask 077
+          cat > .env.server <<EOF
+          IMAGE_TAG=$TAG
+          APP_HOSTNAME=${{ vars.APP_HOSTNAME }}
+          SITE_ADDRESS=${{ vars.APP_HOSTNAME }}
+          PUBLIC_URL=https://${{ vars.APP_HOSTNAME }}
+          ACME_EMAIL=${{ vars.ACME_EMAIL }}
+          FIRM_CREATORS=${{ vars.FIRM_CREATORS }}
+          MAIL_FROM_ADDRESS=${{ vars.MAIL_FROM_ADDRESS }}
+          DB_ADMIN_PASSWORD=$DB_ADMIN_PASSWORD
+          DB_APP_PASSWORD=$DB_APP_PASSWORD
+          AUTH_SECRET=$AUTH_SECRET
+          STORAGE_ACCESS_KEY=$STORAGE_ACCESS_KEY
+          STORAGE_SECRET_KEY=$STORAGE_SECRET_KEY
+          BREVO_API_KEY=$BREVO_API_KEY
+          BACKUP_BUCKET=${{ vars.BACKUP_BUCKET }}
+          BACKUP_ACCESS_KEY=$BACKUP_ACCESS_KEY
+          BACKUP_SECRET_KEY=$BACKUP_SECRET_KEY
+          EOF
+          sed -e "s|\${STORAGE_ACCESS_KEY}|$STORAGE_ACCESS_KEY|" -e "s|\${STORAGE_SECRET_KEY}|$STORAGE_SECRET_KEY|" \
+            infra/server/s3.json.template > s3.json
+          scp infra/server/compose.yml infra/server/Caddyfile infra/server/postgres-init.sh \
+            infra/server/backup.sh infra/server/offsite.sh s3.json "$TARGET:/opt/kleidi/"
+          scp .env.server "$TARGET:/opt/kleidi/.env"
+          rm .env.server s3.json
+
+      - name: Migrate and restart
+        run: |
+          ssh "$TARGET" "cd /opt/kleidi && chmod 600 .env s3.json && mkdir -p backups &&
+            docker compose up -d postgres storage &&
+            docker compose --profile release run --rm migrate &&
+            docker compose up -d --remove-orphans &&
+            docker images --format '{{.Repository}}:{{.Tag}}' | grep -E '^kleidi-(api|worker|migrate):' |
+              grep -v ':$TAG\$' | xargs -r docker rmi"
+
+      - name: Check the new release answers
+        run: |
+          for _ in $(seq 1 30); do
+            curl -sf "https://${{ vars.APP_HOSTNAME }}/health" && exit 0
+            sleep 10
+          done
+          echo "::error::The server did not become healthy"
+          exit 1

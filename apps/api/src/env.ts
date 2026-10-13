@@ -21,6 +21,15 @@ const Env = z.object({
   S3_SECRET_KEY: z.string(),
 });
 
+/** The emails allowed to create a firm, or undefined when anyone may (unset or empty). */
+export function firmCreators(env: Env): string[] | undefined {
+  const list = (env.FIRM_CREATORS ?? "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  return list.length > 0 ? list : undefined;
+}
+
 export const storageConfig = (env: Env) => ({
   endpoint: env.S3_ENDPOINT,
   publicEndpoint: env.S3_PUBLIC_ENDPOINT ?? env.S3_ENDPOINT,
