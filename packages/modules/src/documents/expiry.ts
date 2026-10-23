@@ -1,6 +1,7 @@
 export type ExpiryStatus = "no_expiry" | "valid" | "expiring" | "expired";
 
-export const EXPIRY_WARNING_DAYS = 30;
+// A week's notice: longer would flag a fresh 30-day search the day it arrives.
+export const EXPIRY_WARNING_DAYS = 7;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** expiresOn is an ISO date (YYYY-MM-DD), compared in UTC. */

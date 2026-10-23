@@ -41,7 +41,8 @@ describe("document rules", () => {
     expect(itemState(v("clean", "pending"), null, today)).toBe("review");
     expect(itemState(v("clean", "rejected"), null, today)).toBe("rejected");
     expect(itemState(v("clean"), null, today)).toBe("ready");
-    expect(itemState(v("clean"), "2026-10-20", today)).toBe("expiring");
+    expect(itemState(v("clean"), "2026-10-15", today)).toBe("expiring");
+    expect(itemState(v("clean"), "2026-10-20", today)).toBe("ready");
     expect(itemState(v("clean"), "2026-10-10", today)).toBe("expired");
   });
 
