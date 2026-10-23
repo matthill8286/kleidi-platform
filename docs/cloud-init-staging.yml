@@ -1,0 +1,47 @@
+#cloud-config
+# First boot of a fresh Ubuntu 24.04 server for Kleidi. Paste this as "cloud-init" user data
+# when creating the instance, with the deploy key's public half in place of the placeholder.
+package_update: true
+package_upgrade: true
+packages:
+  - ca-certificates
+  - curl
+  - ufw
+  - fail2ban
+  - unattended-upgrades
+
+users:
+  - default
+  # GitHub Actions deploys as this user over SSH; it can run Docker and nothing else needs sudo.
+  - name: deploy
+    shell: /bin/bash
+    lock_passwd: true
+    ssh_authorized_keys:
+      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIK74/tmuQ5LQN9JNGaCEdw3XFaTFLQWwaMrDu8I2LD17 kleidi-deploy@github-actions
+
+write_files:
+  # Security updates install themselves; the server reboots at 04:00 when one needs it.
+  - path: /etc/apt/apt.conf.d/52kleidi-unattended
+    content: |
+      Unattended-Upgrade::Automatic-Reboot "true";
+      Unattended-Upgrade::Automatic-Reboot-Time "04:00";
+  - path: /etc/ssh/sshd_config.d/50-kleidi.conf
+    content: |
+      PasswordAuthentication no
+      PermitRootLogin prohibit-password
+
+runcmd:
+  - curl -fsSL https://get.docker.com | sh
+  - usermod -aG docker deploy
+  - mkdir -p /opt/kleidi && chown deploy:deploy /opt/kleidi
+  # ClamAV needs headroom at start-up; 2 GB of swap keeps a 4 GB server safe.
+  - fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+  - echo '/swapfile none swap sw 0 0' >> /etc/fstab
+  - ufw default deny incoming
+  - ufw default allow outgoing
+  - ufw allow 22/tcp
+  - ufw allow 80/tcp
+  - ufw allow 443
+  - ufw --force enable
+  - systemctl enable --now fail2ban unattended-upgrades
+  - systemctl restart ssh

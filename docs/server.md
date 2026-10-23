@@ -31,7 +31,7 @@ In the Scaleway console, create an instance:
 - **Image:** Ubuntu 24.04.
 - **Public IPv4:** yes.
 - **Your SSH key:** add it in the console as well, so you can log in yourself.
-- **Cloud-init:** under **Advanced settings**, paste `cloud-init-staging.yml`. It is the same as `infra/server/cloud-init.yml`, with the deploy key filled in.
+- **Cloud-init:** under **Advanced settings**, paste `docs/cloud-init-staging.yml`. It is `infra/server/cloud-init.yml` with the staging deploy key's public half filled in, which is safe to keep in the repository.
 
 On first boot the server installs Docker, a firewall that only opens ports 22, 80 and 443, fail2ban and automatic security updates. It also creates the `deploy` user that GitHub Actions logs in as. Give it about five minutes.
 
