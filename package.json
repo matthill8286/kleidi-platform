@@ -19,6 +19,9 @@
     "db:generate": "pnpm --filter @kleidi/db generate",
     "db:migrate": "pnpm --filter @kleidi/db migrate",
     "db:seed": "pnpm --filter @kleidi/db seed",
+    "demo:data": "pnpm --filter @kleidi/api demo:data",
+    "demo:save": "mkdir -p .demo && docker compose exec -T postgres pg_dump -U kleidi_admin -d kleidi -Fc > .demo/kleidi-demo.dump",
+    "demo:restore": "docker compose exec -T postgres pg_restore -U kleidi_admin -d kleidi --clean --if-exists --single-transaction -n public < .demo/kleidi-demo.dump",
     "boundaries": "depcruise apps packages --config .dependency-cruiser.cjs --output-type err",
     "test:setup": "pnpm --filter @kleidi/db test:setup"
   },

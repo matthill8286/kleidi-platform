@@ -15,3 +15,4 @@ infra/opentofu/*.tfstate*
 infra/opentofu/*.tfvars
 !infra/opentofu/example.tfvars
 apps/web/src/routeTree.gen.ts
+.demo/
