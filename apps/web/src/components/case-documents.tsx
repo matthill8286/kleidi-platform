@@ -294,8 +294,13 @@ function DocumentRow({
             disabled={visibility.isPending || closed}
           >
             <Icon name={document.visibility === "firm" ? "lock" : "users"} />
-            <span className="hide-sm">
-              {document.visibility === "firm" ? t("cases.docs.firmOnly") : t("cases.docs.shared")}
+            <span className="hide-sm swap">
+              <span className={document.visibility === "firm" ? "" : "ghost"}>
+                {t("cases.docs.firmOnly")}
+              </span>
+              <span className={document.visibility === "firm" ? "ghost" : ""}>
+                {t("cases.docs.shared")}
+              </span>
             </span>
           </button>
         )}

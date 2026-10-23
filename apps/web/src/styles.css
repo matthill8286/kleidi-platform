@@ -746,19 +746,15 @@ h2 {
 .caret.open {
   transform: rotate(90deg);
 }
+/* Actions always sit under the details, so label length and language never move them. */
 .doc-row {
   display: flex;
-  gap: 12px;
-  align-items: flex-start;
+  flex-direction: column;
+  gap: 8px;
   padding: 12px 18px 12px 40px;
   border-top: 1px dashed var(--line);
 }
-/* The actions drop below the title when there is not room for both. */
-.doc-row {
-  flex-wrap: wrap;
-}
 .doc-main {
-  flex: 1 1 240px;
   min-width: 0;
 }
 .doc-row .alert {
@@ -768,7 +764,17 @@ h2 {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
-  justify-content: flex-end;
+}
+/* Both labels share one cell, so the button keeps the wider one's width either way. */
+.swap {
+  display: inline-grid;
+}
+.swap > * {
+  grid-area: 1 / 1;
+  justify-self: start;
+}
+.swap > .ghost {
+  visibility: hidden;
 }
 .history {
   margin-top: 4px;
@@ -1003,7 +1009,6 @@ h2 {
     grid-template-columns: 1fr;
   }
   .doc-row {
-    flex-direction: column;
     padding-left: 18px;
   }
 }
