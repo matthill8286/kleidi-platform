@@ -1,4 +1,4 @@
-import { ApiError, type Localised } from "./api.ts";
+import { ApiError, type CyprusResult, type Localised, type Message, type Payment } from "./api.ts";
 
 export type PortalMe = {
   name: string;
@@ -15,6 +15,7 @@ export type PortalDocument = {
   latest: {
     id: string;
     fileName: string;
+    mimeType: string;
     createdAt: string;
     fromYou: boolean;
     scanStatus: string;
@@ -41,6 +42,11 @@ export type PortalCase = {
     }[];
   };
   documents: PortalDocument[];
+  explanations: ClientExplanation[];
+  messages: Message[];
+  payments: Payment[];
+  nextSteps: { stageKey: string; now: Localised | null; action: Localised | null };
+  features: { explain: boolean };
   consents: {
     id: string;
     granteeType: string;
@@ -48,6 +54,14 @@ export type PortalCase = {
     grantedAt: string;
     revokedAt: string | null;
   }[];
+};
+
+export type ClientExplanation = {
+  id: string;
+  documentTitle: string;
+  question: string | null;
+  result: CyprusResult;
+  createdAt: string;
 };
 
 export type LinkInfo = {
@@ -95,6 +109,13 @@ export const portal = {
   case: () => call<PortalCase>("GET", "/case"),
   signOut: () => call<void>("POST", "/sign-out", {}),
   download: (versionId: string) => call<{ url: string }>("GET", `/documents/${versionId}/download`),
+  explain: (versionId: string, question?: string) =>
+    call<ClientExplanation>(
+      "POST",
+      `/documents/${versionId}/explanations`,
+      question ? { question } : {},
+    ),
+  sendMessage: (body: string) => call<Message>("POST", "/messages", { body }),
   grant: (granteeType: string, email: string) =>
     call<void>("POST", "/consents", { granteeType, email }),
   revoke: (id: string) => call<void>("DELETE", `/consents/${id}`),

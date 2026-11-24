@@ -42,6 +42,12 @@ export type ExpiryFlagged = DomainEvent<
   OnCase & { state: "expiring" | "expired"; expiresOn: string }
 >;
 
+// A client asked Kleidi Assist to explain a document in the portal.
+export type ExplanationRequested = DomainEvent<
+  "documents.ExplanationRequested",
+  OnCase & { explanationId: string; versionId: string; model: string; client: string }
+>;
+
 export type DocumentsEvent =
   | VersionUploaded
   | VersionReleased
@@ -51,4 +57,5 @@ export type DocumentsEvent =
   | VersionRejected
   | DocumentUpdated
   | ClientRequestChanged
-  | ExpiryFlagged;
+  | ExpiryFlagged
+  | ExplanationRequested;
