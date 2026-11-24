@@ -4,7 +4,10 @@ import { portalAccess, portalLinks, portalSessions } from "@kleidi/db/schema/por
 import { AppError, systemClock, type Clock } from "@kleidi/kernel";
 import { findCase, findPartiesByIds, getCase } from "../cases/index.ts";
 import { listConsents } from "../consent/index.ts";
-import { listClientDocuments } from "../documents/index.ts";
+import { listClientDocuments, listClientExplanations } from "../documents/index.ts";
+import { stageGuide } from "../jurisdictions/index.ts";
+import { listMessages } from "../messages/index.ts";
+import { listPayments } from "../payments/index.ts";
 import { getFirmName, listFirmIds, type Actor, type FirmContext } from "../firms/index.ts";
 import { findUsersByIds, normalisePhone, smsAllowed } from "../identity/index.ts";
 import { asLocale, deliver, type Locale, type Notifier } from "../notifications/index.ts";
@@ -456,6 +459,12 @@ export async function getClientCase(db: Db, session: PortalSession) {
       })),
     },
     documents: await listClientDocuments(db, session.firmId, session.caseId, session.partyId),
+    explanations: await listClientExplanations(db, session.firmId, session.caseId, session.partyId),
+    messages: await listMessages(db, session.firmId, session.caseId),
+    payments: await listPayments(db, session.firmId, session.caseId),
+    nextSteps: await withFirm(db, session.firmId, (tx) =>
+      stageGuide(tx, c.jurisdictionCode, c.currentStageKey),
+    ),
     consents: await listConsents(db, {
       firmId: session.firmId,
       caseId: session.caseId,

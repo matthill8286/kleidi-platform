@@ -12,6 +12,8 @@ export const jurisdictions = pgTable("jurisdictions", {
   phoneExample: text("phone_example").notNull().default("+357 99 123456"),
   // Whether cases record freehold or leasehold, as in England and Wales.
   asksTenure: boolean("asks_tenure").notNull().default(false),
+  // ISO 4217 code for payment schedules.
+  currency: text("currency").notNull().default("EUR"),
 });
 
 export const stageTemplates = pgTable(
@@ -24,6 +26,9 @@ export const stageTemplates = pgTable(
     key: text("key").notNull(),
     sortOrder: integer("sort_order").notNull(),
     label: jsonb("label").$type<Localised>().notNull(),
+    // Plain English for the client portal: what is happening now, and what the client should do.
+    clientNow: jsonb("client_now").$type<Localised>(),
+    clientAction: jsonb("client_action").$type<Localised>(),
   },
   (t) => [uniqueIndex("stage_templates_jurisdiction_key").on(t.jurisdictionCode, t.key)],
 );

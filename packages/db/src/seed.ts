@@ -21,13 +21,22 @@ try {
           timezone: sql`excluded.timezone`,
           phoneExample: sql`excluded.phone_example`,
           asksTenure: sql`excluded.asks_tenure`,
+          currency: sql`excluded.currency`,
         },
       });
 
     await db
       .insert(schema.stageTemplates)
       .values(stages.map((s, i) => ({ ...s, jurisdictionCode: j.code, sortOrder: (i + 1) * 10 })))
-      .onConflictDoNothing();
+      // Wording and client guidance follow the seed file.
+      .onConflictDoUpdate({
+        target: [schema.stageTemplates.jurisdictionCode, schema.stageTemplates.key],
+        set: {
+          label: sql`excluded.label`,
+          clientNow: sql`excluded.client_now`,
+          clientAction: sql`excluded.client_action`,
+        },
+      });
 
     await db
       .insert(schema.documentRequirements)

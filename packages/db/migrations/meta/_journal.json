@@ -85,6 +85,13 @@
       "when": 1795524004893,
       "tag": "0011_england_wales",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1795530229057,
+      "tag": "0012_buyer_portal",
+      "breakpoints": true
     }
   ]
 }

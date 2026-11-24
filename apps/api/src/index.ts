@@ -1,5 +1,5 @@
 import { createDb } from "@kleidi/db";
-import { createS3Store } from "@kleidi/modules/documents";
+import { createAssistClient, createS3Store } from "@kleidi/modules/documents";
 import { asLocale, createNotifierFromEnv } from "@kleidi/modules/notifications";
 import { createAuth } from "@kleidi/modules/identity";
 import { buildApp } from "./app.ts";
@@ -25,11 +25,15 @@ const auth = createAuth({
 });
 const store = createS3Store(storageConfig(env));
 await store.ensureBucket();
+const assist = env.ASSIST_URL
+  ? createAssistClient({ url: env.ASSIST_URL, apiKey: env.ASSIST_API_KEY })
+  : undefined;
 const app = await buildApp({
   db,
   auth,
   store,
   notifier,
+  assist,
   secureCookies: env.NODE_ENV === "production",
   storageOrigin: new URL(storageConfig(env).publicEndpoint).origin,
   rateLimitPerMinute: env.RATE_LIMIT_PER_MINUTE,

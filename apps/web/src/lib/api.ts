@@ -29,6 +29,56 @@ export type CaseStatus = "open" | "on_hold" | "completed" | "cancelled";
 export type PropertyType = "resale" | "offplan" | "land";
 export type Tenure = "freehold" | "leasehold" | "commonhold";
 
+/** Kleidi Assist's reading of a Cypriot document. Fields come straight from the service. */
+export type CyprusResult = {
+  document_type?: string;
+  language?: string;
+  property?: Record<string, string | null>;
+  registered_owner?: string | null;
+  title_status?: "issued" | "pending" | "trapped" | "unclear";
+  encumbrances?: {
+    kind: string;
+    reference: string | null;
+    in_favour_of: string | null;
+    amount: string | null;
+    meaning: string;
+  }[];
+  risks?: {
+    severity: "high" | "medium" | "low";
+    issue: string;
+    original_text: string;
+    english: string;
+  }[];
+  plain_english_summary?: string;
+  questions_for_cypriot_lawyer?: string[];
+  caveat?: string;
+};
+
+export type Message = {
+  id: string;
+  body: string;
+  author: { kind: "firm" | "client"; name: string };
+  createdAt: string;
+};
+
+export type Payment = {
+  id: string;
+  label: string;
+  amountMinor: number;
+  currency: string;
+  dueOn: string | null;
+  payTo: string | null;
+  status: "due" | "paid";
+  paidOn: string | null;
+};
+
+export type NewPayment = {
+  label: string;
+  amountMinor: number;
+  dueOn?: string | null;
+  payTo?: string | null;
+};
+
 export type Jurisdiction = {
   code: string;
   name: string;
@@ -334,6 +384,17 @@ export const api = {
     request<void>("POST", `/api/v1/cases/${caseId}/documents/requests`, { ...target, requested }),
   reviewDocument: (versionId: string, body: { decision: "accepted" | "rejected"; note?: string }) =>
     request<void>("POST", `/api/v1/documents/versions/${versionId}/review`, body),
+  messages: (caseId: string) => request<Message[]>("GET", `/api/v1/cases/${caseId}/messages`),
+  sendMessage: (caseId: string, body: string) =>
+    request<Message>("POST", `/api/v1/cases/${caseId}/messages`, { body }),
+  payments: (caseId: string) => request<Payment[]>("GET", `/api/v1/cases/${caseId}/payments`),
+  addPayment: (caseId: string, body: NewPayment) =>
+    request<Payment>("POST", `/api/v1/cases/${caseId}/payments`, body),
+  updatePayment: (
+    id: string,
+    body: Partial<NewPayment> & { status?: "due" | "paid"; paidOn?: string | null },
+  ) => request<Payment>("PATCH", `/api/v1/payments/${id}`, body),
+  removePayment: (id: string) => request<void>("DELETE", `/api/v1/payments/${id}`),
   downloadLink: (versionId: string) =>
     request<{ url: string }>("GET", `/api/v1/documents/versions/${versionId}/download`),
   updateDocument: (

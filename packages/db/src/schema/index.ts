@@ -11,6 +11,8 @@ export * from "./audit.ts";
 export * from "./events.ts";
 export * from "./idempotency.ts";
 export * from "./portal.ts";
+export * from "./messages.ts";
+export * from "./payments.ts";
 
 /**
  * Tables filtered by row-level security on firm_id; policies.ts builds its SQL from this list.
@@ -24,6 +26,9 @@ export const FIRM_SCOPED_TABLES = [
   "case_stages",
   "documents",
   "document_versions",
+  "document_explanations",
+  "case_messages",
+  "payment_tranches",
   "portal_access",
   "deadlines",
   "consents",
