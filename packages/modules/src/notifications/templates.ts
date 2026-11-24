@@ -30,6 +30,36 @@ export type TemplateData = {
   "portal-sign-in": { firmName: string; link: string };
   "verify-email": { name: string; link: string };
   "portal-code": { code: string };
+  "portal-message": { firmName: string; authorName: string; caseReference: string; link: string };
+  "portal-message-sms": { firmName: string; caseReference: string };
+  "client-message": { clientName: string; caseReference: string; link: string };
+  "client-message-sms": { clientName: string; caseReference: string };
+  "portal-payment-added": {
+    firmName: string;
+    caseReference: string;
+    label: string;
+    amount: string;
+    // Empty when the instalment has no date yet.
+    due: string;
+    link: string;
+  };
+  "portal-payment-due": {
+    firmName: string;
+    caseReference: string;
+    label: string;
+    amount: string;
+    due: string;
+    when: "week" | "today";
+    payTo: string;
+    link: string;
+  };
+  "portal-payment-due-sms": {
+    caseReference: string;
+    label: string;
+    amount: string;
+    due: string;
+    when: "week" | "today";
+  };
   "daily-digest": {
     name: string;
     overdue: DigestLine[];
@@ -59,6 +89,108 @@ const sections = (parts: [string, DigestLine[]][]) =>
 
 // Greek and Russian copy are drafts pending professional translation.
 const TEMPLATES: { [K in TemplateName]: Copy<TemplateData[K]> } = {
+  // Message alerts never carry the message itself: the client reads it after signing in.
+  "portal-message": {
+    en: (d) => ({
+      subject: `New message from ${d.authorName} about ${d.caseReference}`,
+      text: `${d.authorName} at ${d.firmName} has sent you a message about your case ${d.caseReference}.\n\nRead it in your case: ${d.link}\n\nIf you are not signed in, enter your email there and we will send you a link.`,
+    }),
+    el: (d) => ({
+      subject: `Νέο μήνυμα από ${d.authorName} για ${d.caseReference}`,
+      text: `${d.authorName} από ${d.firmName} σας έστειλε μήνυμα για την υπόθεσή σας ${d.caseReference}.\n\nΔιαβάστε το στην υπόθεσή σας: ${d.link}\n\nΑν δεν είστε συνδεδεμένοι, γράψτε εκεί το email σας και θα σας στείλουμε σύνδεσμο.`,
+    }),
+    ru: (d) => ({
+      subject: `Новое сообщение от ${d.authorName} по делу ${d.caseReference}`,
+      text: `${d.authorName} (${d.firmName}) отправил(а) вам сообщение по делу ${d.caseReference}.\n\nПрочитать в кабинете: ${d.link}\n\nЕсли вы не вошли, укажите там свой email, и мы пришлём ссылку.`,
+    }),
+  },
+  "portal-message-sms": {
+    en: (d) => ({
+      subject: "",
+      text: `Kleidi: ${d.firmName} sent you a message about ${d.caseReference}. Check your email for the link.`,
+    }),
+    el: (d) => ({
+      subject: "",
+      text: `Kleidi: Νέο μήνυμα από ${d.firmName} για ${d.caseReference}. Δείτε το email σας.`,
+    }),
+    ru: (d) => ({
+      subject: "",
+      text: `Kleidi: новое сообщение от ${d.firmName} по делу ${d.caseReference}. Ссылка в email.`,
+    }),
+  },
+  "client-message": {
+    en: (d) => ({
+      subject: `${d.clientName} sent a message about ${d.caseReference}`,
+      text: `${d.clientName} has sent a message on case ${d.caseReference}.\n\nOpen the case to read and reply: ${d.link}`,
+    }),
+    el: (d) => ({
+      subject: `${d.clientName} έστειλε μήνυμα για ${d.caseReference}`,
+      text: `${d.clientName} έστειλε μήνυμα στην υπόθεση ${d.caseReference}.\n\nΆνοιγμα υπόθεσης για ανάγνωση και απάντηση: ${d.link}`,
+    }),
+    ru: (d) => ({
+      subject: `${d.clientName} отправил(а) сообщение по делу ${d.caseReference}`,
+      text: `${d.clientName} отправил(а) сообщение по делу ${d.caseReference}.\n\nОткрыть дело, чтобы прочитать и ответить: ${d.link}`,
+    }),
+  },
+  "client-message-sms": {
+    en: (d) => ({
+      subject: "",
+      text: `Kleidi: ${d.clientName} sent a message on ${d.caseReference}.`,
+    }),
+    el: (d) => ({
+      subject: "",
+      text: `Kleidi: ${d.clientName} έστειλε μήνυμα για ${d.caseReference}.`,
+    }),
+    ru: (d) => ({
+      subject: "",
+      text: `Kleidi: ${d.clientName} написал(а) по делу ${d.caseReference}.`,
+    }),
+  },
+  "portal-payment-added": {
+    en: (d) => ({
+      subject: `New payment on your schedule: ${d.label}`,
+      text: `${d.firmName} has added a payment to the schedule for your case ${d.caseReference}.\n\n${d.label}: ${d.amount}${d.due ? `, due ${d.due}` : ""}\n\nSee the full schedule: ${d.link}`,
+    }),
+    el: (d) => ({
+      subject: `Νέα πληρωμή στο πρόγραμμά σας: ${d.label}`,
+      text: `${d.firmName} πρόσθεσε μια πληρωμή στο πρόγραμμα της υπόθεσής σας ${d.caseReference}.\n\n${d.label}: ${d.amount}${d.due ? `, λήγει ${d.due}` : ""}\n\nΔείτε όλο το πρόγραμμα: ${d.link}`,
+    }),
+    ru: (d) => ({
+      subject: `Новый платёж в графике: ${d.label}`,
+      text: `${d.firmName} добавил(а) платёж в график по вашему делу ${d.caseReference}.\n\n${d.label}: ${d.amount}${d.due ? `, срок ${d.due}` : ""}\n\nВесь график: ${d.link}`,
+    }),
+  },
+  "portal-payment-due": {
+    en: (d) => ({
+      subject:
+        d.when === "today" ? `Payment due today: ${d.label}` : `Payment due in a week: ${d.label}`,
+      text: `${d.label} of ${d.amount} on your case ${d.caseReference} is due ${d.when === "today" ? "today" : `on ${d.due}`}.${d.payTo ? `\n\nPay to: ${d.payTo}` : ""}\n\nPlease tell ${d.firmName} once you have paid.\n\nYour schedule: ${d.link}`,
+    }),
+    el: (d) => ({
+      subject:
+        d.when === "today" ? `Πληρωμή σήμερα: ${d.label}` : `Πληρωμή σε μία εβδομάδα: ${d.label}`,
+      text: `${d.label} ύψους ${d.amount} για την υπόθεσή σας ${d.caseReference} λήγει ${d.when === "today" ? "σήμερα" : `στις ${d.due}`}.${d.payTo ? `\n\nΠληρωμή σε: ${d.payTo}` : ""}\n\nΕνημερώστε το ${d.firmName} όταν πληρώσετε.\n\nΤο πρόγραμμά σας: ${d.link}`,
+    }),
+    ru: (d) => ({
+      subject:
+        d.when === "today" ? `Платёж сегодня: ${d.label}` : `Платёж через неделю: ${d.label}`,
+      text: `${d.label} на сумму ${d.amount} по делу ${d.caseReference} нужно оплатить ${d.when === "today" ? "сегодня" : d.due}.${d.payTo ? `\n\nПолучатель: ${d.payTo}` : ""}\n\nСообщите ${d.firmName}, когда оплатите.\n\nВаш график: ${d.link}`,
+    }),
+  },
+  "portal-payment-due-sms": {
+    en: (d) => ({
+      subject: "",
+      text: `Kleidi: ${d.label} (${d.amount}) for ${d.caseReference} is due ${d.when === "today" ? "today" : d.due}.`,
+    }),
+    el: (d) => ({
+      subject: "",
+      text: `Kleidi: ${d.label} (${d.amount}) για ${d.caseReference} λήγει ${d.when === "today" ? "σήμερα" : d.due}.`,
+    }),
+    ru: (d) => ({
+      subject: "",
+      text: `Kleidi: ${d.label} (${d.amount}) по ${d.caseReference}, срок ${d.when === "today" ? "сегодня" : d.due}.`,
+    }),
+  },
   "firm-invitation": {
     en: (d) => ({
       subject: `You're invited to ${d.firmName} on Kleidi`,
@@ -263,3 +395,9 @@ export const DOCUMENT_STATES: Record<
     rejected: "отклонён, нужна новая версия",
   },
 };
+
+/** An amount in minor units (cents, pence) in the reader's language, such as €30,000.00. */
+export function formatMoney(minor: number, currency: string, locale: Locale): string {
+  const tag = locale === "el" ? "el-GR" : locale === "ru" ? "ru-RU" : "en-GB";
+  return new Intl.NumberFormat(tag, { style: "currency", currency }).format(minor / 100);
+}

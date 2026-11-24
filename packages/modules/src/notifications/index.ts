@@ -10,4 +10,12 @@ export {
 } from "./handlers.ts";
 export { renderMessage, routeByChannel, type Notifier, type OutboundMessage } from "./notifier.ts";
 export { createSmtpNotifier } from "./smtp.ts";
-export { asLocale, formatWhen, render, type Locale, type TemplateName } from "./templates.ts";
+export {
+  asLocale,
+  formatMoney,
+  formatWhen,
+  render,
+  type Locale,
+  type TemplateName,
+} from "./templates.ts";
+export { localDay, localHour } from "./schedule.ts";

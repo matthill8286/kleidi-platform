@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createBrevoNotifier } from "./brevo.ts";
-import { LOCALES, render, type TemplateData, type TemplateName } from "./templates.ts";
+import { formatMoney, LOCALES, render, type TemplateData, type TemplateName } from "./templates.ts";
 
 const SAMPLES: { [K in TemplateName]: TemplateData[K] } = {
   "firm-invitation": {
@@ -31,6 +31,40 @@ const SAMPLES: { [K in TemplateName]: TemplateData[K] } = {
   },
   "portal-sign-in": { firmName: "Christou & Co", link: "https://x/p" },
   "portal-code": { code: "123456" },
+  "portal-message": {
+    firmName: "Christou & Co",
+    authorName: "Elena",
+    caseReference: "CY-2026-001",
+    link: "https://x/p",
+  },
+  "portal-message-sms": { firmName: "Christou & Co", caseReference: "CY-2026-001" },
+  "client-message": { clientName: "James Hart", caseReference: "CY-2026-001", link: "https://x/c" },
+  "client-message-sms": { clientName: "James Hart", caseReference: "CY-2026-001" },
+  "portal-payment-added": {
+    firmName: "Christou & Co",
+    caseReference: "CY-2026-001",
+    label: "Deposit",
+    amount: "€30,000.00",
+    due: "15 Feb 2027",
+    link: "https://x/p",
+  },
+  "portal-payment-due": {
+    firmName: "Christou & Co",
+    caseReference: "CY-2026-001",
+    label: "Deposit",
+    amount: "€30,000.00",
+    due: "15 Feb 2027",
+    when: "week",
+    payTo: "Developer's account",
+    link: "https://x/p",
+  },
+  "portal-payment-due-sms": {
+    caseReference: "CY-2026-001",
+    label: "Deposit",
+    amount: "€30,000.00",
+    due: "15 Feb 2027",
+    when: "today",
+  },
   "verify-email": { name: "Elena", link: "https://x/v" },
   "daily-digest": {
     name: "Elena",
@@ -51,18 +85,30 @@ describe("templates", () => {
         name.startsWith("deadline") ||
         name.startsWith("document") ||
         name === "daily-digest" ||
-        name === "portal-invitation"
+        name === "portal-invitation" ||
+        name.startsWith("portal-message") ||
+        name.startsWith("portal-payment") ||
+        name.startsWith("client-message")
       )
         for (const t of texts) expect(t).toContain("CY-2026-001");
     }
   });
 
-  it("keeps the SMS reminder within one message", () => {
-    for (const locale of LOCALES) {
-      expect(
-        render("deadline-reminder-sms", locale, SAMPLES["deadline-reminder-sms"]).text.length,
-      ).toBeLessThanOrEqual(160);
-    }
+  it("keeps every SMS within one message", () => {
+    const sms = (Object.keys(SAMPLES) as TemplateName[]).filter((n) => n.endsWith("-sms"));
+    expect(sms.length).toBeGreaterThan(1);
+    for (const name of sms)
+      for (const locale of LOCALES)
+        expect(
+          render(name, locale, SAMPLES[name] as never).text.length,
+          `${name} ${locale}`,
+        ).toBeLessThanOrEqual(160);
+  });
+
+  it("formats money in the reader's language", () => {
+    expect(formatMoney(3000000, "EUR", "en")).toBe("€30,000.00");
+    expect(formatMoney(125050, "GBP", "en")).toBe("£1,250.50");
+    expect(formatMoney(3000000, "EUR", "el")).toMatch(/30\.000,00/);
   });
 
   it("leaves empty digest sections out", () => {
