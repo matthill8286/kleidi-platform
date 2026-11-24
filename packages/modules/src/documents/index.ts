@@ -22,7 +22,16 @@ export {
   EXPLAINABLE_TYPES,
   type Assist,
   type AssistDocument,
+  type LeaseBuyer,
 } from "./assist.ts";
+export {
+  approveLeaseReview,
+  getClientLeaseSummary,
+  getLeaseReview,
+  reviewLeaseForCase,
+  updateLeaseReview,
+  type LeaseReviewView,
+} from "./lease-review.ts";
 export {
   explainForClient,
   listClientExplanations,

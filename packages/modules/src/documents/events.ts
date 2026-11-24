@@ -48,6 +48,16 @@ export type ExplanationRequested = DomainEvent<
   OnCase & { explanationId: string; versionId: string; model: string; client: string }
 >;
 
+// The firm asked Kleidi Assist to review a lease, and later approved the buyer's summary.
+export type LeaseReviewed = DomainEvent<
+  "documents.LeaseReviewed",
+  OnCase & { reviewId: string; versionId: string; model: string; flags: number }
+>;
+export type LeaseReviewApproved = DomainEvent<
+  "documents.LeaseReviewApproved",
+  OnCase & { reviewId: string }
+>;
+
 export type DocumentsEvent =
   | VersionUploaded
   | VersionReleased
@@ -58,4 +68,6 @@ export type DocumentsEvent =
   | DocumentUpdated
   | ClientRequestChanged
   | ExpiryFlagged
-  | ExplanationRequested;
+  | ExplanationRequested
+  | LeaseReviewed
+  | LeaseReviewApproved;

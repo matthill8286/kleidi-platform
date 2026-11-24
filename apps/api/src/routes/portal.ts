@@ -11,6 +11,7 @@ import {
   MAX_UPLOAD_BYTES,
   requestUpload,
   type Assist,
+  getClientLeaseSummary,
   type ObjectStore,
 } from "@kleidi/modules/documents";
 import { postClientMessage } from "@kleidi/modules/messages";
@@ -347,6 +348,33 @@ export const portalRoutes: FastifyPluginAsyncZod<Deps> = async (app, deps) => {
         question: request.body.question,
       });
       return reply.code(201).send(created);
+    },
+  );
+
+  app.get(
+    "/lease-summary",
+    {
+      schema: {
+        querystring: z.object({ locale: z.enum(LOCALES).optional() }),
+        response: {
+          200: z.object({
+            summary: z
+              .object({ markdown: z.string(), locale: z.string(), approvedAt: z.date().nullable() })
+              .nullable(),
+          }),
+        },
+      },
+    },
+    async (request) => {
+      const s = await requireClient(request);
+      return {
+        summary: await getClientLeaseSummary(
+          db,
+          s.firmId,
+          s.caseId,
+          request.query.locale ?? s.locale,
+        ),
+      };
     },
   );
 
