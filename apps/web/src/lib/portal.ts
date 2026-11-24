@@ -1,4 +1,4 @@
-import { ApiError, type Localised } from "./api.ts";
+import { ApiError, type CyprusResult, type Localised } from "./api.ts";
 
 export type PortalMe = {
   name: string;
@@ -41,6 +41,7 @@ export type PortalCase = {
     }[];
   };
   documents: PortalDocument[];
+  explanations: { id: string; documentTitle: string; result: CyprusResult; createdAt: string }[];
   consents: {
     id: string;
     granteeType: string;

@@ -17,6 +17,18 @@ export {
   type ClientActor,
   type UploadTarget,
 } from "./application.ts";
+export {
+  createAssistClient,
+  EXPLAINABLE_TYPES,
+  type Assist,
+  type AssistDocument,
+} from "./assist.ts";
+export {
+  explainVersion,
+  listClientExplanations,
+  listExplanations,
+  shareExplanation,
+} from "./explanations.ts";
 export { ALLOWED_TYPES, MAX_UPLOAD_BYTES, type ItemState, type ScanStatus } from "./domain.ts";
 export type { DocumentsEvent } from "./events.ts";
 export { EXPIRY_WARNING_DAYS, expiryStatus, type ExpiryStatus } from "./expiry.ts";

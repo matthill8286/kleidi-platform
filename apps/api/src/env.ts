@@ -19,6 +19,9 @@ const Env = z.object({
   S3_BUCKET: z.string(),
   S3_ACCESS_KEY: z.string(),
   S3_SECRET_KEY: z.string(),
+  // Kleidi Assist explains documents in English. Unset turns the feature off.
+  ASSIST_URL: z.string().url().optional(),
+  ASSIST_API_KEY: z.string().optional(),
 });
 
 /** The emails allowed to create a firm, or undefined when anyone may (unset or empty). */
