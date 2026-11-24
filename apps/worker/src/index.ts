@@ -13,6 +13,7 @@ import {
   sendDailyDigests,
   type Notifier,
 } from "@kleidi/modules/notifications";
+import { sendPaymentReminders } from "@kleidi/modules/portal";
 import { buildConsumers, queueFor } from "./consumers.ts";
 import { relayToConsumers } from "./relay.ts";
 
@@ -71,6 +72,12 @@ const scheduled = [
     name: "daily-digest",
     cron: "0 * * * *",
     run: () => sendDailyDigests(db, notifier, env.appUrl, undefined, { atLocalHour: 7 }),
+  },
+  {
+    // Hourly, so clients hear about payments at 09:00 in their firm's time zone.
+    name: "payment-reminders",
+    cron: "0 * * * *",
+    run: () => sendPaymentReminders(db, notifier, env.appUrl, undefined, { atLocalHour: 9 }),
   },
 ];
 for (const job of scheduled) {

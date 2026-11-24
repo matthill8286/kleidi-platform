@@ -1,4 +1,4 @@
-import { and, asc, count, eq, sql } from "drizzle-orm";
+import { and, asc, count, eq, inArray, sql } from "drizzle-orm";
 import { publishEvents, withFirm, type Db, type Tx } from "@kleidi/db";
 import { paymentTranches } from "@kleidi/db/schema/payments";
 import { AppError, type DomainEvent } from "@kleidi/kernel";
@@ -195,5 +195,25 @@ export async function removePayment(
       },
     };
     await publishEvents(tx, [event]);
+  });
+}
+
+/** Unpaid instalments in one firm falling due on any of these dates (YYYY-MM-DD), for reminders. */
+export async function listPaymentsDueOn(db: Db, firmId: string, dates: string[]) {
+  if (dates.length === 0) return [];
+  return withFirm(db, firmId, async (tx) => {
+    const rows = await tx
+      .select()
+      .from(paymentTranches)
+      .where(and(eq(paymentTranches.status, "due"), inArray(paymentTranches.dueOn, dates)));
+    return rows.map((p) => ({ ...view(p), caseId: p.caseId }));
+  });
+}
+
+/** One instalment by id, for an alert about it. Undefined when it was removed since. */
+export async function findPayment(db: Db, firmId: string, paymentId: string) {
+  return withFirm(db, firmId, async (tx) => {
+    const [row] = await tx.select().from(paymentTranches).where(eq(paymentTranches.id, paymentId));
+    return row ? { ...view(row), caseId: row.caseId } : undefined;
   });
 }
