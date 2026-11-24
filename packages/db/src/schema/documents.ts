@@ -117,3 +117,46 @@ export const documentExplanations = pgTable(
   },
   (t) => [index("document_explanations_case").on(t.caseId)],
 );
+
+/**
+ * Kleidi Assist's review of a lease, for England and Wales leasehold sales. The lawyer edits the
+ * report and the buyer's summary while it is a draft; approving it translates the summary and
+ * shows it in the buyer's portal.
+ */
+export const leaseReviews = pgTable(
+  "lease_reviews",
+  {
+    id: id(),
+    firmId: firmRef(),
+    caseId: uuid("case_id")
+      .notNull()
+      .references(() => cases.id, { onDelete: "cascade" }),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => documents.id, { onDelete: "cascade" }),
+    versionId: uuid("version_id")
+      .notNull()
+      .references(() => documentVersions.id, { onDelete: "cascade" }),
+    // What the buyer told the lawyer, which changes the flags.
+    buyer: jsonb("buyer")
+      .$type<{
+        plansToLet?: boolean | undefined;
+        propertyValue?: number | undefined;
+        inLondon?: boolean | undefined;
+      }>()
+      .notNull(),
+    result: jsonb("result").$type<Record<string, unknown>>().notNull(),
+    report: text("report").notNull(),
+    buyerSummary: text("buyer_summary").notNull(),
+    // Greek and Russian versions of the approved summary, keyed by locale.
+    translations: jsonb("translations").$type<Record<string, string>>(),
+    model: text("model").notNull(),
+    status: text("status").notNull().default("draft"),
+    createdById: uuid("created_by_id").references(() => users.id),
+    approvedById: uuid("approved_by_id").references(() => users.id),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("lease_reviews_case").on(t.caseId)],
+);

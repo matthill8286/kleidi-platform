@@ -24,6 +24,7 @@ import { clientAccessRoutes } from "./routes/client-access.ts";
 import { portalRoutes } from "./routes/portal.ts";
 import { deadlineRoutes } from "./routes/deadlines.ts";
 import { documentRoutes } from "./routes/documents.ts";
+import { leaseReviewRoutes } from "./routes/lease-reviews.ts";
 import { firmRoutes } from "./routes/firms.ts";
 import { healthRoutes } from "./routes/health.ts";
 import { invitationRoutes } from "./routes/invitations.ts";
@@ -147,6 +148,13 @@ export async function buildApp(deps: AppDeps) {
     store: deps.store,
     ctx,
     idempotent,
+    prefix: "/api/v1",
+  });
+  await typed.register(leaseReviewRoutes, {
+    db: deps.db,
+    store: deps.store,
+    ctx,
+    assist: deps.assist,
     prefix: "/api/v1",
   });
   await typed.register(messageRoutes, { db: deps.db, ctx, prefix: "/api/v1" });

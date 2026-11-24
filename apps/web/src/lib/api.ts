@@ -72,6 +72,35 @@ export type Payment = {
   paidOn: string | null;
 };
 
+export type LeaseFlag = {
+  code: string;
+  severity: "high" | "medium" | "info";
+  title: string;
+  detail: string;
+  clause?: string;
+  page?: number;
+};
+
+/** Kleidi Assist's lease review as Kleidi stores it. `result` comes straight from the service. */
+export type LeaseReview = {
+  id: string;
+  documentId: string;
+  versionId: string;
+  documentTitle: string;
+  buyer: { plansToLet?: boolean; propertyValue?: number; inLondon?: boolean };
+  result: {
+    computed?: { yearsRemaining: number | null; endDate: string | null; peakRent: number | null };
+    flags?: LeaseFlag[];
+    quotes?: { check: "found" | "not_found" | "not_checked" }[];
+  };
+  report: string;
+  buyerSummary: string;
+  status: "draft" | "approved";
+  model: string;
+  approvedAt: string | null;
+  createdAt: string;
+};
+
 export type NewPayment = {
   label: string;
   amountMinor: number;
@@ -395,6 +424,19 @@ export const api = {
     body: Partial<NewPayment> & { status?: "due" | "paid"; paidOn?: string | null },
   ) => request<Payment>("PATCH", `/api/v1/payments/${id}`, body),
   removePayment: (id: string) => request<void>("DELETE", `/api/v1/payments/${id}`),
+  leaseReview: (caseId: string) =>
+    request<{ review: LeaseReview | null; available: boolean }>(
+      "GET",
+      `/api/v1/cases/${caseId}/lease-review`,
+    ),
+  reviewLease: (
+    caseId: string,
+    body: { documentId: string; plansToLet?: boolean; propertyValue?: number; inLondon?: boolean },
+  ) => request<LeaseReview>("POST", `/api/v1/cases/${caseId}/lease-review`, body),
+  updateLeaseReview: (id: string, body: { report?: string; buyerSummary?: string }) =>
+    request<LeaseReview>("PATCH", `/api/v1/lease-reviews/${id}`, body),
+  approveLeaseReview: (id: string) =>
+    request<LeaseReview>("POST", `/api/v1/lease-reviews/${id}/approve`, {}),
   downloadLink: (versionId: string) =>
     request<{ url: string }>("GET", `/api/v1/documents/versions/${versionId}/download`),
   updateDocument: (

@@ -197,7 +197,9 @@
       "paymentAdded": "added the payment {{label}}",
       "paymentPaid": "marked {{label}} as paid",
       "paymentChanged": "changed the payment {{label}}",
-      "paymentRemoved": "removed the payment {{label}}"
+      "paymentRemoved": "removed the payment {{label}}",
+      "leaseReviewed": "Kleidi Assist reviewed {{title}}",
+      "leaseApproved": "The lease summary was shared with the buyer"
     },
     "docs": {
       "title": "Documents",
@@ -421,14 +423,18 @@
     "lastAdmin": "A firm needs at least one admin. Make someone else an admin first.",
     "jurisdictionUnknown": "Kleidi does not cover that country yet.",
     "assistUnavailable": "English explanations are not switched on for this firm.",
-    "assistFailed": "Kleidi Assist could not explain this document. Try again in a moment.",
+    "assistFailed": "Kleidi Assist did not answer. Try again in a moment.",
     "explainUnsupported": "Kleidi Assist reads PDF, JPEG, PNG and text files up to 15 MB.",
     "explanationLimit": "This case has used all its English explanations. Ask your lawyer.",
     "messageEmpty": "Write a message first.",
     "messageTooLong": "This message is too long.",
     "paymentLabel": "Give the payment a short name.",
     "paymentAmount": "Enter an amount above zero.",
-    "paymentNotFound": "This payment could not be found."
+    "paymentNotFound": "This payment could not be found.",
+    "leaseReviewNotApplicable": "Lease reviews are for leasehold sales in England and Wales.",
+    "leaseUnsupported": "The lease must be a PDF or an image up to 15 MB.",
+    "leaseReviewApproved": "This lease review has been approved and can no longer change.",
+    "leaseReviewNotFound": "Lease review not found."
   },
   "deadlines": {
     "heading": "Deadlines",
@@ -582,6 +588,45 @@
       "now": "What is happening:",
       "you": "What you need to do:"
     },
-    "messagesTitle": "Messages with {{name}}"
+    "messagesTitle": "Messages with {{name}}",
+    "lease": {
+      "title": "Your lease",
+      "approved": "Your lawyer approved this summary on {{date}}.",
+      "english": "This summary is in English, the language your lawyer approved it in."
+    }
+  },
+  "lease": {
+    "title": "Lease review",
+    "start": "Review the lease",
+    "again": "Review again",
+    "noFiles": "Upload the lease to this case first. Kleidi Assist reads PDFs and images that have passed the virus check.",
+    "document": "Lease",
+    "value": "Property value in pounds",
+    "valueHint": "Optional. Used to check the ground rent against lenders' limits.",
+    "plansToLet": "The buyer plans to let the flat",
+    "inLondon": "The flat is in Greater London",
+    "review": "Review",
+    "reading": "Reading the lease…",
+    "empty": "Kleidi Assist reads the lease and drafts a report for you and a plain summary for the buyer. You check both before the buyer sees anything.",
+    "from": "From {{title}}",
+    "draft": "Draft",
+    "approved": "Approved and shared",
+    "yearsLeft": "{{years}} years left",
+    "peakRent": "ground rent reaches £{{amount}} a year",
+    "quotesMissing": "{{count}} quotes were not found on the page given. Check them against the lease.",
+    "severity": {
+      "high": "Needs action",
+      "medium": "Check",
+      "info": "For information"
+    },
+    "report": "Report on the lease",
+    "reportHint": "For you to edit and send. It is never shown in the portal.",
+    "summary": "Summary for the buyer",
+    "summaryHint": "The buyer sees this in the portal, in their language, once you approve it.",
+    "summaryShared": "The buyer can see this summary in the portal.",
+    "preview": "What the buyer will see",
+    "save": "Save changes",
+    "approve": "Approve and share with the buyer",
+    "approving": "Translating and sharing…"
   }
 }

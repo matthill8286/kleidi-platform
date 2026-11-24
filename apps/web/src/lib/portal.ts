@@ -116,6 +116,11 @@ export const portal = {
       question ? { question } : {},
     ),
   sendMessage: (body: string) => call<Message>("POST", "/messages", { body }),
+  leaseSummary: (locale: string) =>
+    call<{ summary: { markdown: string; locale: string; approvedAt: string | null } | null }>(
+      "GET",
+      `/lease-summary?locale=${encodeURIComponent(locale)}`,
+    ),
   grant: (granteeType: string, email: string) =>
     call<void>("POST", "/consents", { granteeType, email }),
   revoke: (id: string) => call<void>("DELETE", `/consents/${id}`),
