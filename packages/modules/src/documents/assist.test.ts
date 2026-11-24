@@ -62,4 +62,48 @@ describe("Kleidi Assist client", () => {
       }),
     ).rejects.toMatchObject({ code: "unavailable", status: 503, key: "assistFailed" });
   });
+
+  it("sends a lease for review with what the buyer said", async () => {
+    const { fetchImpl, calls } = fakeFetch(200, {
+      review: { flags: [] },
+      report: "# Report",
+      buyerSummary: "## Your lease",
+      model: "gpt-test",
+    });
+    const result = await createAssistClient({ url: "http://assist.local", fetchImpl }).reviewLease({
+      document: { name: "lease.pdf", mediaType: "application/pdf", bytes: Buffer.from("%PDF") },
+      buyer: { plansToLet: true },
+    });
+    expect(calls[0]!.url).toBe("http://assist.local/api/v1/leases/review");
+    expect(JSON.parse(String(calls[0]!.init.body)).buyer).toEqual({ plansToLet: true });
+    expect(result).toEqual({
+      review: { flags: [] },
+      report: "# Report",
+      buyerSummary: "## Your lease",
+      model: "gpt-test",
+    });
+  });
+
+  it("asks for translations", async () => {
+    const { fetchImpl, calls } = fakeFetch(200, {
+      translations: { el: "Γεια", ru: "Привет" },
+      model: "m",
+    });
+    const result = await createAssistClient({ url: "http://assist.local", fetchImpl }).translate({
+      text: "Hello",
+      to: ["el", "ru"],
+    });
+    expect(JSON.parse(String(calls[0]!.init.body))).toEqual({ text: "Hello", to: ["el", "ru"] });
+    expect(result).toEqual({ translations: { el: "Γεια", ru: "Привет" } });
+  });
+
+  it("turns a failed lease review into an Assist error", async () => {
+    const { fetchImpl } = fakeFetch(502, { error: "The model declined" });
+    await expect(
+      createAssistClient({ url: "http://assist.local", fetchImpl }).reviewLease({
+        document: { name: "l.pdf", mediaType: "application/pdf", bytes: Buffer.from("x") },
+        buyer: {},
+      }),
+    ).rejects.toMatchObject({ key: "assistFailed", message: "The model declined" });
+  });
 });
