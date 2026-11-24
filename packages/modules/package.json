@@ -11,7 +11,9 @@
     "./firms": "./src/firms/index.ts",
     "./identity": "./src/identity/index.ts",
     "./jurisdictions": "./src/jurisdictions/index.ts",
+    "./messages": "./src/messages/index.ts",
     "./notifications": "./src/notifications/index.ts",
+    "./payments": "./src/payments/index.ts",
     "./portal": "./src/portal/index.ts"
   },
   "scripts": {

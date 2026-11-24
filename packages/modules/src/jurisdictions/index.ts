@@ -16,6 +16,7 @@ export function listJurisdictions(db: Db | Tx) {
       timezone: jurisdictions.timezone,
       phoneExample: jurisdictions.phoneExample,
       asksTenure: jurisdictions.asksTenure,
+      currency: jurisdictions.currency,
     })
     .from(jurisdictions)
     .orderBy(asc(jurisdictions.code));
@@ -63,4 +64,14 @@ export async function listStages(tx: Tx, code: string) {
     .from(stageTemplates)
     .where(eq(stageTemplates.jurisdictionCode, code))
     .orderBy(asc(stageTemplates.sortOrder));
+}
+
+/** What the client portal says about one stage: what is happening, and what the client does. */
+export async function stageGuide(tx: Tx, code: string, stageKey: string) {
+  const [row] = await tx
+    .select({ now: stageTemplates.clientNow, action: stageTemplates.clientAction })
+    .from(stageTemplates)
+    .where(and(eq(stageTemplates.jurisdictionCode, code), eq(stageTemplates.key, stageKey)))
+    .limit(1);
+  return { stageKey, now: row?.now ?? null, action: row?.action ?? null };
 }

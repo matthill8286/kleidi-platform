@@ -3,6 +3,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { CaseDocumentsCard } from "../../../components/case-documents.tsx";
+import { MessagesCard } from "../../../components/messages.tsx";
+import { PaymentsCard } from "../../../components/payments.tsx";
 import { PartyRow } from "../../../components/client-access.tsx";
 import { CaseDeadlinesCard } from "../../../components/deadlines.tsx";
 import { ErrorAlert, Field, Icon } from "../../../components/ui.tsx";
@@ -155,6 +157,11 @@ function CasePage() {
             caseId={c.id}
             closed={c.status === "completed" || c.status === "cancelled"}
           />
+          <PaymentsCard
+            caseId={c.id}
+            closed={c.status === "completed" || c.status === "cancelled"}
+          />
+          <MessagesCard caseId={c.id} />
           <section className="card">
             <div className="card-head">
               <h2>{t("cases.detail.timeline")}</h2>
@@ -552,6 +559,20 @@ function ActivityCard({
         return t(a.metadata.requested ? "portal.events.requested" : "portal.events.unrequested", {
           title,
         });
+      case "documents.ExplanationRequested":
+        return t("cases.events.explained", { name: m.client, title });
+      case "messages.MessagePosted":
+        return m.from === "client"
+          ? t("cases.events.clientMessage", { name: m.client })
+          : t("cases.events.firmMessage");
+      case "payments.PaymentAdded":
+        return t("cases.events.paymentAdded", { label: m.label });
+      case "payments.PaymentChanged":
+        return m.status === "paid"
+          ? t("cases.events.paymentPaid", { label: m.label })
+          : t("cases.events.paymentChanged", { label: m.label });
+      case "payments.PaymentRemoved":
+        return t("cases.events.paymentRemoved", { label: m.label });
       case "documents.VersionDownloaded":
         return m.client
           ? t("portal.events.clientDownloaded", { name: m.client, title })

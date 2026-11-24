@@ -7,7 +7,8 @@ export type ErrorCode =
   | "invalid"
   | "expired"
   | "precondition_required"
-  | "precondition_failed";
+  | "precondition_failed"
+  | "unavailable";
 
 const STATUS: Record<ErrorCode, number> = {
   unauthenticated: 401,
@@ -19,6 +20,7 @@ const STATUS: Record<ErrorCode, number> = {
   expired: 410,
   precondition_required: 428,
   precondition_failed: 412,
+  unavailable: 503,
 };
 
 export type MessageParams = Record<string, string | number>;

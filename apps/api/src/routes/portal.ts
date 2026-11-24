@@ -7,12 +7,17 @@ import { grantConsent, revokeConsent } from "@kleidi/modules/consent";
 import {
   clientDownloadLink,
   completeUpload,
+  explainForClient,
   MAX_UPLOAD_BYTES,
   requestUpload,
+  type Assist,
   type ObjectStore,
 } from "@kleidi/modules/documents";
+import { postClientMessage } from "@kleidi/modules/messages";
 import { LOCALES } from "@kleidi/modules/identity";
 import type { Notifier } from "@kleidi/modules/notifications";
+import { Message, MessageBody } from "./messages.ts";
+import { Payment } from "./payments.ts";
 import {
   acceptPrivacy,
   getClientCase,
@@ -35,7 +40,17 @@ type Deps = {
   notifier: Notifier;
   webOrigin: string;
   secureCookies: boolean;
+  // Kleidi Assist, for English explanations of shared documents. Off when not configured.
+  assist?: Assist | undefined;
 };
+
+const ClientExplanation = z.object({
+  id: z.string(),
+  documentTitle: z.string(),
+  question: z.string().nullable(),
+  result: z.record(z.string(), z.unknown()),
+  createdAt: z.date(),
+});
 
 const Localised = z.record(z.string(), z.string());
 
@@ -44,7 +59,7 @@ const Localised = z.record(z.string(), z.string());
  * and every route here returns only what the firm shared with them.
  */
 export const portalRoutes: FastifyPluginAsyncZod<Deps> = async (app, deps) => {
-  const { db, store, notifier, webOrigin } = deps;
+  const { db, store, notifier, webOrigin, assist } = deps;
 
   // Cookie sessions need a same-origin check on every change, against cross-site requests.
   app.addHook("onRequest", async (request) => {
@@ -208,6 +223,7 @@ export const portalRoutes: FastifyPluginAsyncZod<Deps> = async (app, deps) => {
                   .object({
                     id: z.string(),
                     fileName: z.string(),
+                    mimeType: z.string(),
                     createdAt: z.date(),
                     fromYou: z.boolean(),
                     scanStatus: z.string(),
@@ -218,6 +234,17 @@ export const portalRoutes: FastifyPluginAsyncZod<Deps> = async (app, deps) => {
                   .nullable(),
               }),
             ),
+            // English explanations this client asked for, newest first.
+            explanations: z.array(ClientExplanation),
+            messages: z.array(Message),
+            payments: z.array(Payment),
+            // Plain English about the current stage. Null where the template has none.
+            nextSteps: z.object({
+              stageKey: z.string(),
+              now: Localised.nullable(),
+              action: Localised.nullable(),
+            }),
+            features: z.object({ explain: z.boolean() }),
             consents: z.array(
               z.object({
                 id: z.string(),
@@ -231,7 +258,10 @@ export const portalRoutes: FastifyPluginAsyncZod<Deps> = async (app, deps) => {
         },
       },
     },
-    async (request) => getClientCase(db, await requireClient(request)),
+    async (request) => ({
+      ...(await getClientCase(db, await requireClient(request))),
+      features: { explain: Boolean(assist) },
+    }),
   );
 
   app.post(
@@ -294,6 +324,45 @@ export const portalRoutes: FastifyPluginAsyncZod<Deps> = async (app, deps) => {
         );
       }
       return reply.code(204).send();
+    },
+  );
+
+  app.post(
+    "/documents/:versionId/explanations",
+    {
+      schema: {
+        params: z.object({ versionId: z.uuid() }),
+        body: z.object({ question: z.string().trim().max(1000).optional() }),
+        response: { 201: ClientExplanation },
+      },
+    },
+    async (request, reply) => {
+      const s = await requireClient(request);
+      const created = await explainForClient(db, store, assist, {
+        firmId: s.firmId,
+        caseId: s.caseId,
+        partyId: s.partyId,
+        partyName: s.partyName,
+        versionId: request.params.versionId,
+        question: request.body.question,
+      });
+      return reply.code(201).send(created);
+    },
+  );
+
+  app.post(
+    "/messages",
+    { schema: { body: MessageBody, response: { 201: Message } } },
+    async (request, reply) => {
+      const s = await requireClient(request);
+      const sent = await postClientMessage(db, {
+        firmId: s.firmId,
+        caseId: s.caseId,
+        partyId: s.partyId,
+        partyName: s.partyName,
+        body: request.body.body,
+      });
+      return reply.code(201).send(sent);
     },
   );
 

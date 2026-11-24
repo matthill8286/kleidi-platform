@@ -804,7 +804,7 @@ export async function setRequestedFromClient(
  * Whether a client may see a file. Their own uploads, yes. Otherwise only files the firm
  * uploaded to a document it shared with clients: one client never sees another's files.
  */
-const clientMaySee = (
+export const clientMaySee = (
   d: { visibility: "client" | "firm" },
   v: { uploadedByPartyId: string | null },
   partyId: string,
@@ -858,6 +858,7 @@ export async function listClientDocuments(db: Db, firmId: string, caseId: string
           latest: latest && {
             id: latest.id,
             fileName: latest.fileName,
+            mimeType: latest.mimeType,
             createdAt: latest.createdAt,
             fromYou: latest.uploadedByPartyId === partyId,
             scanStatus: latest.scanStatus,
