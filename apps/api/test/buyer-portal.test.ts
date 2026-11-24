@@ -54,7 +54,8 @@ describe.skipIf(!process.env.DATABASE_URL || !process.env.DATABASE_ADMIN_URL)(
       bare = await buildApp(base);
     });
     afterAll(async () => {
-      await Promise.all([app.close(), bare.close()]);
+      // Setup may fail before the apps exist; close what was built.
+      await Promise.all([app?.close(), bare?.close()]);
       await Promise.all([close(), admin.close()]);
     });
 
