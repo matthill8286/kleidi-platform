@@ -15,6 +15,7 @@ import {
   PARTY_ROLES,
   PROPERTY_TYPES,
   removeParty,
+  TENURES,
   transitionCase,
 } from "@kleidi/modules/cases";
 import type { Context } from "../plugins/context.ts";
@@ -59,6 +60,7 @@ const CaseDetail = z.object({
   propertyAddress: z.string().nullable(),
   plotOrRegNo: z.string().nullable(),
   propertyType: z.string().nullable(),
+  tenure: z.enum(TENURES).nullable(),
   developerName: z.string().nullable(),
   currentStageKey: z.string(),
   status: z.enum(CASE_STATUSES),
@@ -145,6 +147,7 @@ export const caseRoutes: FastifyPluginAsyncZod<{
           propertyAddress: z.string().trim().min(3).max(300),
           plotOrRegNo: z.string().trim().max(80).optional(),
           propertyType: z.enum(PROPERTY_TYPES),
+          tenure: z.enum(TENURES).optional(),
           developerName: z.string().trim().max(160).optional(),
           assignedLawyerId: z.uuid().optional(),
           parties: z.array(Party).min(1).max(20),

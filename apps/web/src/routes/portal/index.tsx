@@ -112,7 +112,7 @@ function CaseView() {
             <h2>{t("portal.docs.requests")}</h2>
           </div>
           {requested.map((d) => (
-            <ClientDocument key={d.id} d={d} />
+            <ClientDocument key={d.id} d={d} jurisdiction={c.jurisdictionCode} />
           ))}
         </section>
       )}
@@ -122,7 +122,7 @@ function CaseView() {
           <h2>{t("portal.docs.title")}</h2>
         </div>
         {others.map((d) => (
-          <ClientDocument key={d.id} d={d} />
+          <ClientDocument key={d.id} d={d} jurisdiction={c.jurisdictionCode} />
         ))}
         {others.length === 0 && (
           <p className="muted" style={{ margin: 0, padding: "0 18px 12px" }}>
@@ -162,9 +162,9 @@ function useRefreshCase() {
 }
 
 /** One document as the client sees it: what is needed, what happened to their file, or a download. */
-function ClientDocument({ d }: { d: PortalDocument }) {
+function ClientDocument({ d, jurisdiction }: { d: PortalDocument; jurisdiction: string }) {
   const { t, i18n } = useTranslation();
-  const { documentTitle } = useStageLabels();
+  const { documentTitle } = useStageLabels(jurisdiction);
   const errorText = useErrorText();
   const refresh = useRefreshCase();
   const input = useRef<HTMLInputElement>(null);

@@ -67,9 +67,10 @@ const scheduled = [
   { name: "document-expiry", cron: "0 6 * * *", run: () => flagExpiringDocuments(db) },
   { name: "purge-expired", cron: "30 3 * * *", run: () => purgeExpired(db) },
   {
+    // Hourly, so each firm gets its digest at 07:00 in its own jurisdiction's time zone.
     name: "daily-digest",
-    cron: "0 7 * * *",
-    run: () => sendDailyDigests(db, notifier, env.appUrl),
+    cron: "0 * * * *",
+    run: () => sendDailyDigests(db, notifier, env.appUrl, undefined, { atLocalHour: 7 }),
   },
 ];
 for (const job of scheduled) {

@@ -146,6 +146,65 @@ describe.skipIf(!process.env.DATABASE_URL || !process.env.DATABASE_ADMIN_URL)(
       // The digest visits every firm in the shared test database.
     }, 60_000);
 
+    it("sends the digest at 07:00 in each firm's own time zone", async () => {
+      // A London firm with a deadline that is overdue by the test clock, so there is something to read.
+      const [harriet] = await admin.db
+        .insert(schema.users)
+        .values({
+          name: "Harriet Clarke",
+          email: `harriet.${randomUUID().slice(0, 8)}@example.test`,
+          twoFactorEnabled: true,
+        })
+        .returning();
+      const actor = { userId: harriet!.id, name: harriet!.name, email: harriet!.email };
+      const london = await createFirm(db, {
+        name: "Clarke Conveyancing",
+        actor,
+        jurisdictionCode: "EW",
+      });
+      const firm = { firmId: london.id, role: "firm_admin" as const };
+      const opened = await openCase(db, {
+        firm,
+        actor,
+        propertyAddress: "21 Mill Road, Cambridge",
+        propertyType: "resale",
+        parties: [{ role: "buyer", fullName: "Sam Patel" }],
+      });
+      await addDeadline(db, {
+        firm,
+        actor,
+        caseId: opened.id,
+        title: "Chase the local search",
+        dueAt: new Date(Date.now() + HOUR),
+      });
+      const toHarriet = () =>
+        sent.filter((m) => m.template === "daily-digest" && m.to === harriet!.email).length;
+
+      // 05:00 UTC in January is 07:00 in Nicosia but only 05:00 in London: nothing for her yet.
+      await sendDailyDigests(
+        db,
+        notifier,
+        APP,
+        { now: () => new Date("2027-01-15T05:00:00Z") },
+        {
+          atLocalHour: 7,
+        },
+      );
+      expect(toHarriet()).toBe(0);
+
+      // 07:00 UTC in January is 07:00 in London.
+      await sendDailyDigests(
+        db,
+        notifier,
+        APP,
+        { now: () => new Date("2027-01-15T07:00:00Z") },
+        {
+          atLocalHour: 7,
+        },
+      );
+      expect(toHarriet()).toBe(1);
+    }, 60_000);
+
     it("skips the digest for a member with nothing due", async () => {
       // A day later in the clock's eyes, the deadlines are still open, so a digest goes again;
       // a firm with no deadlines and no flagged documents sends nothing.

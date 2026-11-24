@@ -61,7 +61,13 @@
     "title": "Set up your firm",
     "lead": "You will be the firm admin. You can invite colleagues next.",
     "firmName": "Firm name",
-    "create": "Create firm"
+    "create": "Create firm",
+    "jurisdiction": "Where the firm practises",
+    "jurisdictionHint": "This sets the case stages and checklist."
+  },
+  "jurisdictions": {
+    "CY": "Cyprus",
+    "EW": "England and Wales"
   },
   "cases": {
     "title": "Cases",
@@ -89,6 +95,11 @@
       "offplan": "Off-plan",
       "land": "Land"
     },
+    "tenures": {
+      "freehold": "Freehold",
+      "leasehold": "Leasehold",
+      "commonhold": "Commonhold"
+    },
     "roles": {
       "buyer": "Buyer",
       "seller": "Seller",
@@ -112,7 +123,14 @@
       "addParty": "Add another party",
       "remove": "Remove",
       "needBuyer": "Add at least one buyer.",
-      "submit": "Open case"
+      "submit": "Open case",
+      "addressExample": "12 Anexartisias, Limassol 3036",
+      "addressExample_EW": "21 Mill Road, Cambridge CB1 2AD",
+      "plot_EW": "Title number",
+      "plotExample": "0/12345",
+      "plotExample_EW": "CB123456",
+      "tenure": "Tenure",
+      "tenureUnknown": "Not known yet"
     },
     "detail": {
       "back": "All cases",
@@ -339,7 +357,8 @@
     "firmCreationClosed": "Kleidi is open to invited firms only. Contact us to join the pilot.",
     "adminsOnlyRemove": "Only firm admins can remove people.",
     "memberNotFound": "This person is not in the firm.",
-    "lastAdmin": "A firm needs at least one admin. Make someone else an admin first."
+    "lastAdmin": "A firm needs at least one admin. Make someone else an admin first.",
+    "jurisdictionUnknown": "Kleidi does not cover that country yet."
   },
   "deadlines": {
     "heading": "Deadlines",

@@ -7,12 +7,14 @@ import { ErrorAlert, Field, Icon } from "../../components/ui.tsx";
 import { api } from "../../lib/api.ts";
 import { useErrorText } from "../../lib/errors.ts";
 import { ME_KEY } from "../../lib/session.ts";
+import { useJurisdiction } from "../../lib/cases.ts";
 
 export const Route = createFileRoute("/_app/settings")({ component: SettingsPage });
 
 function SettingsPage() {
   const { t, i18n } = useTranslation();
-  const { me } = Route.useRouteContext();
+  const { me, firm } = Route.useRouteContext();
+  const phoneExample = useJurisdiction(firm.jurisdictionCode)?.phoneExample;
   const queryClient = useQueryClient();
   const errorText = useErrorText();
   const [saved, setSaved] = useState(false);
@@ -65,7 +67,7 @@ function SettingsPage() {
               name="phone"
               type="tel"
               defaultValue={me.user.phone ?? ""}
-              placeholder="+357 99 123456"
+              placeholder={phoneExample}
               maxLength={40}
             />
           </Field>

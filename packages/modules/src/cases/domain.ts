@@ -4,6 +4,10 @@ export type CaseStatus = (typeof CASE_STATUSES)[number];
 export const PROPERTY_TYPES = ["resale", "offplan", "land"] as const;
 export type PropertyType = (typeof PROPERTY_TYPES)[number];
 
+/** How the property is owned. Recorded only where the jurisdiction asks for it. */
+export const TENURES = ["freehold", "leasehold", "commonhold"] as const;
+export type Tenure = (typeof TENURES)[number];
+
 export type CaseState = { stageKey: string; status: CaseStatus };
 
 export type Command =

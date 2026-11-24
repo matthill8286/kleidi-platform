@@ -15,7 +15,7 @@ import {
   type PartyRole,
   type Transition,
 } from "../../../lib/api.ts";
-import { newKey, STATUS_CHIP, useStageLabels } from "../../../lib/cases.ts";
+import { newKey, STATUS_CHIP, useJurisdiction, useStageLabels } from "../../../lib/cases.ts";
 import { useErrorText } from "../../../lib/errors.ts";
 
 export const Route = createFileRoute("/_app/cases/$caseId")({ component: CasePage });
@@ -114,6 +114,7 @@ function CasePage() {
             </span>
             <span>{t("cases.detail.progress", { n: index + 1, total: c.stages.length })}</span>
             {c.propertyType && <span>{t(`cases.types.${c.propertyType}`)}</span>}
+            {c.tenure && <span>{t(`cases.tenures.${c.tenure}`)}</span>}
             {c.plotOrRegNo && <span translate="no">{c.plotOrRegNo}</span>}
             {c.assignedLawyer && (
               <span>
@@ -385,6 +386,7 @@ function Parties({
   });
   const closed = c.status === "completed" || c.status === "cancelled";
   const queryClient = useQueryClient();
+  const phoneExample = useJurisdiction(c.jurisdictionCode)?.phoneExample;
   const portalAccess = useQuery({
     queryKey: ["case", c.id, "portal"],
     queryFn: () => api.portalAccess(c.id),
@@ -420,6 +422,7 @@ function Parties({
           caseId={c.id}
           party={p}
           access={portalAccess.data?.find((a) => a.partyId === p.id)}
+          phoneExample={phoneExample}
           closed={closed}
           onChanged={() => queryClient.invalidateQueries({ queryKey: ["case", c.id], exact: true })}
           onRemove={() => onWrite(api.removeParty(c.id, c.version, p.id))}
@@ -446,7 +449,7 @@ function Parties({
               <input name="email" type="email" />
             </Field>
             <Field label={t("settings.phone")} hint={t("cases.form.optional")}>
-              <input name="phone" type="tel" placeholder="+357 99 123456" />
+              <input name="phone" type="tel" placeholder={phoneExample} />
             </Field>
           </div>
           <ErrorAlert

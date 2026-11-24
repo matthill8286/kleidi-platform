@@ -186,6 +186,7 @@ export const portalRoutes: FastifyPluginAsyncZod<Deps> = async (app, deps) => {
             you: z.object({ name: z.string(), role: z.string() }),
             case: z.object({
               reference: z.string(),
+              jurisdictionCode: z.string(),
               propertyAddress: z.string().nullable(),
               status: z.string(),
               stages: z.array(

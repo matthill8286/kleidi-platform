@@ -3,6 +3,7 @@ import { publishEvents, type Db, type Tx } from "@kleidi/db";
 import { firmInvitations, firmMembers, firms } from "@kleidi/db/schema/firms";
 import { AppError, systemClock, type Clock } from "@kleidi/kernel";
 import { findUsersByIds } from "../identity/index.ts";
+import { findJurisdiction } from "../jurisdictions/index.ts";
 import {
   canManageTeam,
   hashToken,
@@ -18,9 +19,20 @@ import type { FirmCreated, MemberInvited, MemberJoined, MemberRemoved } from "./
 export type Actor = { userId: string; name: string; email: string };
 export type FirmContext = { firmId: string; role: Role };
 
-export async function createFirm(db: Db, input: { name: string; actor: Actor }) {
+export async function createFirm(
+  db: Db,
+  input: { name: string; actor: Actor; jurisdictionCode?: string | undefined },
+) {
   const name = input.name.trim();
   if (name.length < 2) throw new AppError("invalid", "Firm name is too short", "firmNameShort");
+  const jurisdictionCode = (input.jurisdictionCode ?? "CY").toUpperCase();
+  if (!(await findJurisdiction(db, jurisdictionCode))) {
+    throw new AppError(
+      "invalid",
+      `Kleidi does not cover ${jurisdictionCode} yet`,
+      "jurisdictionUnknown",
+    );
+  }
   return db.transaction(async (tx) => {
     const base = slugify(name);
     const taken = await tx
@@ -29,10 +41,7 @@ export async function createFirm(db: Db, input: { name: string; actor: Actor }) 
       .where(eq(firms.slug, base))
       .limit(1);
     const slug = taken.length ? `${base}-${crypto.randomUUID().slice(0, 6)}` : base;
-    const [firm] = await tx
-      .insert(firms)
-      .values({ name, slug, jurisdictionCode: "CY" })
-      .returning();
+    const [firm] = await tx.insert(firms).values({ name, slug, jurisdictionCode }).returning();
     if (!firm) throw new Error("Firm insert returned no row");
     await tx
       .insert(firmMembers)
@@ -50,7 +59,13 @@ export async function createFirm(db: Db, input: { name: string; actor: Actor }) 
 
 export function listMyFirms(db: Db, userId: string) {
   return db
-    .select({ id: firms.id, name: firms.name, slug: firms.slug, role: firmMembers.role })
+    .select({
+      id: firms.id,
+      name: firms.name,
+      slug: firms.slug,
+      jurisdictionCode: firms.jurisdictionCode,
+      role: firmMembers.role,
+    })
     .from(firmMembers)
     .innerJoin(firms, eq(firms.id, firmMembers.firmId))
     .where(eq(firmMembers.userId, userId))
@@ -61,6 +76,11 @@ export function listMyFirms(db: Db, userId: string) {
 export async function listFirmIds(db: Db): Promise<string[]> {
   const rows = await db.select({ id: firms.id }).from(firms);
   return rows.map((r) => r.id);
+}
+
+/** Every firm with its jurisdiction, for jobs that run at each firm's local hour. */
+export function listFirmJurisdictions(db: Db): Promise<{ id: string; jurisdictionCode: string }[]> {
+  return db.select({ id: firms.id, jurisdictionCode: firms.jurisdictionCode }).from(firms);
 }
 
 /** A firm's display name, for messages sent on its behalf. */

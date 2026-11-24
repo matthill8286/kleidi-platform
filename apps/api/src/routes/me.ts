@@ -17,7 +17,13 @@ const Me = z.object({
     twoFactorEnabled: z.boolean(),
   }),
   firms: z.array(
-    z.object({ id: z.string(), name: z.string(), slug: z.string(), role: z.enum(ROLES) }),
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      slug: z.string(),
+      jurisdictionCode: z.string(),
+      role: z.enum(ROLES),
+    }),
   ),
 });
 
