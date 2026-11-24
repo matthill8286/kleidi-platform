@@ -53,7 +53,13 @@ export function createS3Store(config: StorageConfig): ObjectStore {
       try {
         await s3.send(new HeadBucketCommand({ Bucket }));
       } catch {
-        await s3.send(new CreateBucketCommand({ Bucket }));
+        try {
+          await s3.send(new CreateBucketCommand({ Bucket }));
+        } catch (error) {
+          // Another process created it between the check and the create, which is fine.
+          const name = (error as { name?: string }).name;
+          if (name !== "BucketAlreadyOwnedByYou" && name !== "BucketAlreadyExists") throw error;
+        }
       }
     },
     signUpload: (key, mimeType, byteSize, seconds) =>
