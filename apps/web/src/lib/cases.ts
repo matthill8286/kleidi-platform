@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import type { CaseStatus, Localised } from "./api.ts";
+import { api, type CaseStatus, type Jurisdiction, type Localised } from "./api.ts";
 
 export const STATUS_CHIP: Record<CaseStatus, string> = {
   open: "c-blue",
@@ -14,8 +14,18 @@ type Template = {
   requirements: { key: string; label: Localised }[];
 };
 
+/** Every jurisdiction Kleidi covers. Reference data, so it is fetched once. */
+export function useJurisdictions() {
+  return useQuery({ queryKey: ["jurisdictions"], queryFn: api.jurisdictions, staleTime: Infinity });
+}
+
+/** One jurisdiction's settings, such as its phone example and whether it asks for tenure. */
+export function useJurisdiction(code: string): Jurisdiction | undefined {
+  return useJurisdictions().data?.find((j) => j.code === code);
+}
+
 /** Stage and checklist names in the reader's language, from the country template. */
-export function useStageLabels(jurisdiction = "CY") {
+export function useStageLabels(jurisdiction: string) {
   const { i18n } = useTranslation();
   const template = useQuery({
     queryKey: ["template", jurisdiction],

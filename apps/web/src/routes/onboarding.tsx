@@ -5,6 +5,7 @@ import { AuthLayout, ErrorAlert, Field, Icon } from "../components/ui.tsx";
 import { api, setActiveFirm } from "../lib/api.ts";
 import { loadMe, ME_KEY } from "../lib/session.ts";
 import { useErrorText } from "../lib/errors.ts";
+import { useJurisdictions } from "../lib/cases.ts";
 
 export const Route = createFileRoute("/onboarding")({
   beforeLoad: async ({ context, location }) => {
@@ -24,13 +25,18 @@ function Onboarding() {
   const { queryClient } = Route.useRouteContext();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const jurisdictions = useJurisdictions();
 
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setBusy(true);
     setError(null);
     try {
-      const firm = await api.createFirm(String(new FormData(e.currentTarget).get("name")));
+      const data = new FormData(e.currentTarget);
+      const firm = await api.createFirm(
+        String(data.get("name")),
+        String(data.get("jurisdiction") ?? "CY"),
+      );
       setActiveFirm(firm.id);
       await queryClient.invalidateQueries({ queryKey: ME_KEY });
       router.history.push("/team");
@@ -59,6 +65,15 @@ function Onboarding() {
             placeholder="Christou & Co LLC"
             autoFocus
           />
+        </Field>
+        <Field label={t("onboarding.jurisdiction")} hint={t("onboarding.jurisdictionHint")}>
+          <select name="jurisdiction" defaultValue="CY">
+            {(jurisdictions.data ?? []).map((j) => (
+              <option key={j.code} value={j.code}>
+                {t(`jurisdictions.${j.code}`, { defaultValue: j.name })}
+              </option>
+            ))}
+          </select>
         </Field>
         <ErrorAlert message={error} />
         <button className="btn accent block" disabled={busy}>

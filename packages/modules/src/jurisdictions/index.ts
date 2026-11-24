@@ -1,6 +1,30 @@
 import { and, asc, eq } from "drizzle-orm";
 import type { Db, Tx } from "@kleidi/db";
-import { documentRequirements, stageTemplates } from "@kleidi/db/schema/jurisdictions";
+import {
+  documentRequirements,
+  jurisdictions,
+  stageTemplates,
+} from "@kleidi/db/schema/jurisdictions";
+
+/** Every jurisdiction a firm can practise in, with its settings. */
+export function listJurisdictions(db: Db | Tx) {
+  return db
+    .select({
+      code: jurisdictions.code,
+      name: jurisdictions.name,
+      defaultLocale: jurisdictions.defaultLocale,
+      timezone: jurisdictions.timezone,
+      phoneExample: jurisdictions.phoneExample,
+      asksTenure: jurisdictions.asksTenure,
+    })
+    .from(jurisdictions)
+    .orderBy(asc(jurisdictions.code));
+}
+
+/** One jurisdiction's settings, or undefined when Kleidi does not cover it. */
+export async function findJurisdiction(db: Db | Tx, code: string) {
+  return (await listJurisdictions(db)).find((j) => j.code === code);
+}
 
 /** Stages and document requirements for one country, in order. Empty stages = unknown country. */
 export async function getTemplate(db: Db, code: string) {
