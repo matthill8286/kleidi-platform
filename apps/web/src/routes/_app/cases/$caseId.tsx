@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { CaseDocumentsCard } from "../../../components/case-documents.tsx";
 import { MessagesCard } from "../../../components/messages.tsx";
 import { PaymentsCard } from "../../../components/payments.tsx";
+import { LeaseReviewCard } from "../../../components/lease-review.tsx";
 import { PartyRow } from "../../../components/client-access.tsx";
 import { CaseDeadlinesCard } from "../../../components/deadlines.tsx";
 import { ErrorAlert, Field, Icon } from "../../../components/ui.tsx";
@@ -157,6 +158,12 @@ function CasePage() {
             caseId={c.id}
             closed={c.status === "completed" || c.status === "cancelled"}
           />
+          {c.jurisdictionCode === "EW" && c.tenure === "leasehold" && (
+            <LeaseReviewCard
+              caseId={c.id}
+              closed={c.status === "completed" || c.status === "cancelled"}
+            />
+          )}
           <PaymentsCard
             caseId={c.id}
             closed={c.status === "completed" || c.status === "cancelled"}
@@ -561,6 +568,10 @@ function ActivityCard({
         });
       case "documents.ExplanationRequested":
         return t("cases.events.explained", { name: m.client, title });
+      case "documents.LeaseReviewed":
+        return t("cases.events.leaseReviewed", { title });
+      case "documents.LeaseReviewApproved":
+        return t("cases.events.leaseApproved");
       case "messages.MessagePosted":
         return m.from === "client"
           ? t("cases.events.clientMessage", { name: m.client })

@@ -36,6 +36,12 @@ describe.skipIf(!process.env.DATABASE_URL || !process.env.DATABASE_ADMIN_URL)(
         assistCalls.push(input);
         return { explanation: EXPLANATION, markdown: "# Explained", model: "gpt-test" };
       },
+      async reviewLease() {
+        throw new Error("Not used in these tests");
+      },
+      async translate() {
+        throw new Error("Not used in these tests");
+      },
     };
     let app: FastifyInstance;
     let bare: FastifyInstance;

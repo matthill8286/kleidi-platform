@@ -436,6 +436,7 @@ export async function findCase(tx: Tx, caseId: string) {
       status: cases.status,
       currentStageKey: cases.currentStageKey,
       assignedLawyerId: cases.assignedLawyerId,
+      tenure: cases.tenure,
     })
     .from(cases)
     .where(eq(cases.id, caseId))

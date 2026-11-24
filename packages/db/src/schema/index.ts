@@ -27,6 +27,7 @@ export const FIRM_SCOPED_TABLES = [
   "documents",
   "document_versions",
   "document_explanations",
+  "lease_reviews",
   "case_messages",
   "payment_tranches",
   "portal_access",

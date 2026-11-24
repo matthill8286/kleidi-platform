@@ -7,6 +7,7 @@ import {
   ExplanationView,
   PortalExplainButton,
 } from "../../components/explanations.tsx";
+import { SimpleMarkdown } from "../../components/markdown.tsx";
 import { Thread } from "../../components/messages.tsx";
 import { PaymentList } from "../../components/payments.tsx";
 import { ErrorAlert, Field, Icon } from "../../components/ui.tsx";
@@ -16,6 +17,34 @@ import { useErrorText } from "../../lib/errors.ts";
 import { portal, type PortalCase, type PortalDocument } from "../../lib/portal.ts";
 
 export const Route = createFileRoute("/portal/")({ component: PortalHome });
+
+/** The lease summary the lawyer approved, in the buyer's language when there is a translation. */
+function LeaseSummary({ lang }: { lang: string }) {
+  const { t } = useTranslation();
+  const lease = useQuery({
+    queryKey: ["portal", "lease", lang],
+    queryFn: () => portal.leaseSummary(lang),
+  });
+  const s = lease.data?.summary;
+  if (!s) return null;
+  return (
+    <section className="card portal-card">
+      <h2 style={{ marginTop: 0 }}>{t("portal.lease.title")}</h2>
+      <SimpleMarkdown text={s.markdown.replace(/^##[^\n]*\n+/, "")} />
+      <p className="muted" style={{ marginBottom: 0 }}>
+        {s.approvedAt &&
+          t("portal.lease.approved", {
+            date: new Date(s.approvedAt).toLocaleDateString(lang, {
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+            }),
+          })}
+        {s.locale !== lang && lang !== "en" && <> {t("portal.lease.english")}</>}
+      </p>
+    </section>
+  );
+}
 
 const ME = ["portal", "me"];
 const CASE = ["portal", "case"];
@@ -128,6 +157,8 @@ function CaseView() {
           )}
         </section>
       )}
+
+      <LeaseSummary lang={lang} />
 
       {payments.length > 0 && (
         <section className="card">
