@@ -9,19 +9,23 @@ import {
   type PartyInput,
   type PartyRole,
   type PropertyType,
+  type Tenure,
 } from "../../../lib/api.ts";
-import { newKey } from "../../../lib/cases.ts";
+import { newKey, useJurisdiction } from "../../../lib/cases.ts";
 import { useErrorText } from "../../../lib/errors.ts";
 
 export const Route = createFileRoute("/_app/cases/new")({ component: NewCasePage });
 
 const ROLES: PartyRole[] = ["buyer", "seller", "developer", "bank"];
 const TYPES: PropertyType[] = ["resale", "offplan", "land"];
+const TENURES: Tenure[] = ["freehold", "leasehold", "commonhold"];
 const blank = (role: PartyRole): PartyInput => ({ role, fullName: "", email: "", phone: "" });
 
 function NewCasePage() {
   const { t } = useTranslation();
   const { firm } = Route.useRouteContext();
+  const jurisdiction = useJurisdiction(firm.jurisdictionCode);
+  const code = firm.jurisdictionCode;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const errorText = useErrorText();
@@ -59,6 +63,7 @@ function NewCasePage() {
       propertyAddress: text("address"),
       propertyType: text("type") as PropertyType,
       ...(text("plot") ? { plotOrRegNo: text("plot") } : {}),
+      ...(text("tenure") ? { tenure: text("tenure") as Tenure } : {}),
       ...(text("developer") ? { developerName: text("developer") } : {}),
       parties: filled,
     });
@@ -90,7 +95,7 @@ function NewCasePage() {
               required
               minLength={3}
               maxLength={300}
-              placeholder="12 Anexartisias, Limassol 3036"
+              placeholder={t([`cases.form.addressExample_${code}`, "cases.form.addressExample"])}
             />
           </Field>
           <div className="grid-2">
@@ -103,10 +108,29 @@ function NewCasePage() {
                 ))}
               </select>
             </Field>
-            <Field label={t("cases.form.plot")} hint={t("cases.form.optional")}>
-              <input name="plot" maxLength={80} placeholder="0/12345" />
+            <Field
+              label={t([`cases.form.plot_${code}`, "cases.form.plot"])}
+              hint={t("cases.form.optional")}
+            >
+              <input
+                name="plot"
+                maxLength={80}
+                placeholder={t([`cases.form.plotExample_${code}`, "cases.form.plotExample"])}
+              />
             </Field>
           </div>
+          {jurisdiction?.asksTenure && (
+            <Field label={t("cases.form.tenure")} hint={t("cases.form.optional")}>
+              <select name="tenure" defaultValue="">
+                <option value="">{t("cases.form.tenureUnknown")}</option>
+                {TENURES.map((te) => (
+                  <option key={te} value={te}>
+                    {t(`cases.tenures.${te}`)}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
           <Field label={t("cases.form.developer")} hint={t("cases.form.optional")}>
             <input name="developer" maxLength={160} />
           </Field>
@@ -145,6 +169,7 @@ function NewCasePage() {
               <Field label={t("cases.form.partyPhone")}>
                 <input
                   type="tel"
+                  placeholder={jurisdiction?.phoneExample}
                   value={p.phone}
                   maxLength={40}
                   onChange={(e) => update(i, { phone: e.target.value })}

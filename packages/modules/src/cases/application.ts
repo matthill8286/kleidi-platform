@@ -17,6 +17,7 @@ import {
   type CaseStatus,
   type Command,
   type PropertyType,
+  type Tenure,
 } from "./domain.ts";
 import type {
   CaseOpened,
@@ -41,6 +42,7 @@ export type OpenCaseInput = {
   propertyAddress: string;
   plotOrRegNo?: string | undefined;
   propertyType: PropertyType;
+  tenure?: Tenure | undefined;
   developerName?: string | undefined;
   assignedLawyerId?: string | undefined;
   parties: PartyInput[];
@@ -97,6 +99,7 @@ export async function openCase(db: Db, input: OpenCaseInput, clock: Clock = syst
         propertyAddress: input.propertyAddress.trim(),
         plotOrRegNo: input.plotOrRegNo?.trim() || null,
         propertyType: input.propertyType,
+        tenure: input.tenure ?? null,
         developerName: input.developerName?.trim() || null,
         currentStageKey: first.key,
         assignedLawyerId: lawyerId,

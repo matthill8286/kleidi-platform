@@ -440,6 +440,7 @@ export async function getClientCase(db: Db, session: PortalSession) {
     you: { name: party?.fullName ?? session.partyName, role: party?.role ?? "buyer" },
     case: {
       reference: c.reference,
+      jurisdictionCode: c.jurisdictionCode,
       propertyAddress: c.propertyAddress,
       status: c.status,
       stages: c.stages.map((s, i) => ({

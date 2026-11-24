@@ -17,11 +17,14 @@ export function PartyRow({
   closed,
   onChanged,
   onRemove,
+  phoneExample,
 }: {
   caseId: string;
   party: Party;
   access: PortalAccess | undefined;
   closed: boolean;
+  // The jurisdiction's example number, shown in the phone field.
+  phoneExample?: string | undefined;
   onChanged: () => Promise<unknown>;
   // Removes the party from the case; their history stays on record.
   onRemove: () => Promise<unknown>;
@@ -123,7 +126,7 @@ export function PartyRow({
                 name="phone"
                 type="tel"
                 defaultValue={party.phone ?? ""}
-                placeholder="+357 99 123456"
+                placeholder={phoneExample}
               />
             </Field>
           </div>
