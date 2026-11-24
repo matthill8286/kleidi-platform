@@ -2,6 +2,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
+import {
+  canExplainType,
+  ExplanationView,
+  PortalExplainButton,
+} from "../../components/explanations.tsx";
+import { Thread } from "../../components/messages.tsx";
+import { PaymentList } from "../../components/payments.tsx";
 import { ErrorAlert, Field, Icon } from "../../components/ui.tsx";
 import { ApiError } from "../../lib/api.ts";
 import { useStageLabels } from "../../lib/cases.ts";
@@ -76,7 +83,7 @@ function CaseView() {
     },
   });
   if (!data.data) return null;
-  const { case: c, documents } = data.data;
+  const { case: c, documents, explanations, messages, payments, nextSteps, features } = data.data;
   const lang = i18n.resolvedLanguage ?? "en";
   const current = c.stages.find((s) => s.position === "current");
   const requested = documents.filter((d) => d.requested);
@@ -106,13 +113,43 @@ function CaseView() {
         </ol>
       </section>
 
+      {c.status !== "completed" && (nextSteps.now || nextSteps.action) && (
+        <section className="card portal-card">
+          <h2 style={{ marginTop: 0 }}>{t("portal.next.title")}</h2>
+          {nextSteps.now && (
+            <p style={{ margin: "0 0 10px" }}>
+              <b>{t("portal.next.now")}</b> {nextSteps.now[lang] ?? nextSteps.now.en}
+            </p>
+          )}
+          {nextSteps.action && (
+            <p style={{ margin: 0 }}>
+              <b>{t("portal.next.you")}</b> {nextSteps.action[lang] ?? nextSteps.action.en}
+            </p>
+          )}
+        </section>
+      )}
+
+      {payments.length > 0 && (
+        <section className="card">
+          <div className="card-head">
+            <h2>{t("payments.title")}</h2>
+          </div>
+          <PaymentList payments={payments} />
+        </section>
+      )}
+
       {requested.length > 0 && (
         <section className="card">
           <div className="card-head">
             <h2>{t("portal.docs.requests")}</h2>
           </div>
           {requested.map((d) => (
-            <ClientDocument key={d.id} d={d} jurisdiction={c.jurisdictionCode} />
+            <ClientDocument
+              key={d.id}
+              d={d}
+              jurisdiction={c.jurisdictionCode}
+              canExplain={features.explain}
+            />
           ))}
         </section>
       )}
@@ -122,7 +159,12 @@ function CaseView() {
           <h2>{t("portal.docs.title")}</h2>
         </div>
         {others.map((d) => (
-          <ClientDocument key={d.id} d={d} jurisdiction={c.jurisdictionCode} />
+          <ClientDocument
+            key={d.id}
+            d={d}
+            jurisdiction={c.jurisdictionCode}
+            canExplain={features.explain}
+          />
         ))}
         {others.length === 0 && (
           <p className="muted" style={{ margin: 0, padding: "0 18px 12px" }}>
@@ -131,6 +173,25 @@ function CaseView() {
         )}
         <SendOther />
       </section>
+
+      {explanations.length > 0 && (
+        <section className="card" id="explanations">
+          <div className="card-head">
+            <h2>{t("portal.explanations")}</h2>
+          </div>
+          {explanations.map((e) => (
+            <div key={e.id} style={{ padding: "0 18px 18px", display: "grid", gap: 8 }}>
+              <b>{e.documentTitle}</b>
+              {e.question && (
+                <div className="muted">{t("assist.asked", { question: e.question })}</div>
+              )}
+              <ExplanationView result={e.result} />
+            </div>
+          ))}
+        </section>
+      )}
+
+      <PortalMessages messages={messages} lawyer={data.data.lawyer?.name ?? data.data.firmName} />
 
       <div className="portal-grid">
         {data.data.lawyer && (
@@ -162,7 +223,15 @@ function useRefreshCase() {
 }
 
 /** One document as the client sees it: what is needed, what happened to their file, or a download. */
-function ClientDocument({ d, jurisdiction }: { d: PortalDocument; jurisdiction: string }) {
+function ClientDocument({
+  d,
+  jurisdiction,
+  canExplain,
+}: {
+  d: PortalDocument;
+  jurisdiction: string;
+  canExplain: boolean;
+}) {
   const { t, i18n } = useTranslation();
   const { documentTitle } = useStageLabels(jurisdiction);
   const errorText = useErrorText();
@@ -222,6 +291,9 @@ function ClientDocument({ d, jurisdiction }: { d: PortalDocument; jurisdiction: 
             <Icon name="download" />
             {t("cases.docs.download")}
           </button>
+        )}
+        {canExplain && l?.downloadable && !mine && canExplainType(l.mimeType) && (
+          <PortalExplainButton versionId={l.id} onDone={refresh} />
         )}
         {needsFile && (
           <>
@@ -367,6 +439,34 @@ function Sharing({ consents }: { consents: PortalCase["consents"] }) {
         </button>
       </form>
       <ErrorAlert message={errorText(grant.error ?? revoke.error)} />
+    </section>
+  );
+}
+
+/** The client's side of the case thread with their lawyer. */
+function PortalMessages({
+  messages,
+  lawyer,
+}: {
+  messages: PortalCase["messages"];
+  lawyer: string;
+}) {
+  const { t } = useTranslation();
+  const errorText = useErrorText();
+  const refresh = useRefreshCase();
+  const send = useMutation({ mutationFn: portal.sendMessage, onSuccess: refresh });
+  return (
+    <section className="card">
+      <div className="card-head">
+        <h2>{t("portal.messagesTitle", { name: lawyer })}</h2>
+      </div>
+      <Thread
+        messages={messages}
+        mine="client"
+        onSend={(body) => send.mutateAsync(body)}
+        sending={send.isPending}
+        error={errorText(send.error)}
+      />
     </section>
   );
 }

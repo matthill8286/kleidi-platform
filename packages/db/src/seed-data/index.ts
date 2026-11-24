@@ -1,6 +1,7 @@
 import type { Localised } from "../schema/columns.ts";
 import { CYPRUS_REQUIREMENTS, CYPRUS_STAGES } from "./cyprus.ts";
 import { ENGLAND_WALES_REQUIREMENTS, ENGLAND_WALES_STAGES } from "./england-wales.ts";
+import { STAGE_GUIDES } from "./guides.ts";
 
 export type JurisdictionSeed = {
   code: string;
@@ -9,7 +10,8 @@ export type JurisdictionSeed = {
   timezone: string;
   phoneExample: string;
   asksTenure: boolean;
-  stages: { key: string; label: Localised }[];
+  currency: string;
+  stages: { key: string; label: Localised; clientNow?: Localised; clientAction?: Localised }[];
   requirements: {
     key: string;
     stageKey: string;
@@ -28,7 +30,8 @@ export const JURISDICTIONS: JurisdictionSeed[] = [
     timezone: "Asia/Nicosia",
     phoneExample: "+357 99 123456",
     asksTenure: false,
-    stages: CYPRUS_STAGES,
+    currency: "EUR",
+    stages: CYPRUS_STAGES.map((s) => ({ ...s, ...STAGE_GUIDES.CY![s.key] })),
     requirements: CYPRUS_REQUIREMENTS,
   },
   {
@@ -38,7 +41,8 @@ export const JURISDICTIONS: JurisdictionSeed[] = [
     timezone: "Europe/London",
     phoneExample: "+44 7700 900123",
     asksTenure: true,
-    stages: ENGLAND_WALES_STAGES,
+    currency: "GBP",
+    stages: ENGLAND_WALES_STAGES.map((s) => ({ ...s, ...STAGE_GUIDES.EW![s.key] })),
     requirements: ENGLAND_WALES_REQUIREMENTS,
   },
 ];

@@ -190,7 +190,14 @@
       "stageSkipped": "moved the case to {{to}} with {{count}} checklist items unfinished",
       "accepted": "accepted {{title}} (v{{version}})",
       "rejected": "rejected {{title}} (v{{version}})",
-      "downloaded": "downloaded {{title}} (v{{version}})"
+      "downloaded": "downloaded {{title}} (v{{version}})",
+      "explained": "{{name}} asked for an English explanation of {{title}}",
+      "clientMessage": "{{name}} sent a message",
+      "firmMessage": "sent a message to the client",
+      "paymentAdded": "added the payment {{label}}",
+      "paymentPaid": "marked {{label}} as paid",
+      "paymentChanged": "changed the payment {{label}}",
+      "paymentRemoved": "removed the payment {{label}}"
     },
     "docs": {
       "title": "Documents",
@@ -233,6 +240,60 @@
       "reject": "Ask for a new one",
       "rejectReason": "What should the client send instead?"
     }
+  },
+  "assist": {
+    "explain": "Explain in English",
+    "questionHint": "Optional: a question, such as \"Can I get my title deed?\"",
+    "run": "Explain",
+    "running": "Explaining…",
+    "wait": "Kleidi Assist is reading the document. This takes about a minute.",
+    "asked": "Question: {{question}}",
+    "titleStatus": "Title",
+    "owner": "Registered owner",
+    "charges": "Charges on the property",
+    "risks": "Risks",
+    "questions": "Questions for the Cypriot lawyer",
+    "statuses": {
+      "issued": "issued",
+      "pending": "pending",
+      "trapped": "trapped",
+      "unclear": "unclear"
+    },
+    "severity": {
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    }
+  },
+  "messages": {
+    "title": "Messages with the client",
+    "empty": "No messages yet.",
+    "placeholderFirm": "Write to the client. They see this in their portal.",
+    "placeholderClient": "Write to your lawyer.",
+    "write": "Write a message",
+    "send": "Send"
+  },
+  "payments": {
+    "title": "Payment schedule",
+    "empty": "No payments in the schedule yet.",
+    "add": "Add payment",
+    "label": "Payment",
+    "labelExample": "Deposit",
+    "amount": "Amount",
+    "dueDate": "Due date",
+    "payToLabel": "Where to pay",
+    "payToExample": "Developer's account, details in the contract",
+    "save": "Add to schedule",
+    "markPaid": "Mark paid",
+    "markDue": "Mark unpaid",
+    "remove": "Remove payment",
+    "paid": "Paid",
+    "paidOn": "Paid {{date}}",
+    "due": "Due",
+    "overdue": "Overdue",
+    "dueOn": "due {{date}}",
+    "payTo": "Pay to: {{to}}",
+    "stillDue": "Still to pay: {{amount}}"
   },
   "team": {
     "title": "Team",
@@ -358,7 +419,16 @@
     "adminsOnlyRemove": "Only firm admins can remove people.",
     "memberNotFound": "This person is not in the firm.",
     "lastAdmin": "A firm needs at least one admin. Make someone else an admin first.",
-    "jurisdictionUnknown": "Kleidi does not cover that country yet."
+    "jurisdictionUnknown": "Kleidi does not cover that country yet.",
+    "assistUnavailable": "English explanations are not switched on for this firm.",
+    "assistFailed": "Kleidi Assist could not explain this document. Try again in a moment.",
+    "explainUnsupported": "Kleidi Assist reads PDF, JPEG, PNG and text files up to 15 MB.",
+    "explanationLimit": "This case has used all its English explanations. Ask your lawyer.",
+    "messageEmpty": "Write a message first.",
+    "messageTooLong": "This message is too long.",
+    "paymentLabel": "Give the payment a short name.",
+    "paymentAmount": "Enter an amount above zero.",
+    "paymentNotFound": "This payment could not be found."
   },
   "deadlines": {
     "heading": "Deadlines",
@@ -505,6 +575,13 @@
       "clientSent": "{{name}} sent {{title}}",
       "partyRemoved": "removed {{name}} ({{role}}) from the case",
       "clientDownloaded": "{{name}} downloaded {{title}}"
-    }
+    },
+    "explanations": "Your documents explained in English",
+    "next": {
+      "title": "Where things stand",
+      "now": "What is happening:",
+      "you": "What you need to do:"
+    },
+    "messagesTitle": "Messages with {{name}}"
   }
 }

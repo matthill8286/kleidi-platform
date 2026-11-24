@@ -12,7 +12,7 @@ import {
   type ZodTypeProvider,
 } from "fastify-type-provider-zod";
 import type { Db } from "@kleidi/db";
-import type { ObjectStore } from "@kleidi/modules/documents";
+import type { Assist, ObjectStore } from "@kleidi/modules/documents";
 import type { Auth } from "@kleidi/modules/identity";
 import type { Notifier } from "@kleidi/modules/notifications";
 import { registerAuthRoutes } from "./plugins/auth-routes.ts";
@@ -29,12 +29,16 @@ import { healthRoutes } from "./routes/health.ts";
 import { invitationRoutes } from "./routes/invitations.ts";
 import { jurisdictionRoutes } from "./routes/jurisdictions.ts";
 import { meRoutes } from "./routes/me.ts";
+import { messageRoutes } from "./routes/messages.ts";
+import { paymentRoutes } from "./routes/payments.ts";
 
 export type AppDeps = {
   db: Db;
   auth: Auth;
   store: ObjectStore;
   notifier: Notifier;
+  // Kleidi Assist, for English explanations of documents. Off when not configured.
+  assist?: Assist | undefined;
   // Production serves over HTTPS, so cookies there are Secure.
   secureCookies?: boolean;
   // Where browsers upload and download files; the page may connect there as well as to itself.
@@ -134,6 +138,7 @@ export async function buildApp(deps: AppDeps) {
     notifier: deps.notifier,
     webOrigin: deps.webOrigin,
     secureCookies: deps.secureCookies ?? false,
+    assist: deps.assist,
     prefix: "/api/portal",
   });
   await typed.register(deadlineRoutes, { db: deps.db, ctx, idempotent, prefix: "/api/v1" });
@@ -144,6 +149,8 @@ export async function buildApp(deps: AppDeps) {
     idempotent,
     prefix: "/api/v1",
   });
+  await typed.register(messageRoutes, { db: deps.db, ctx, prefix: "/api/v1" });
+  await typed.register(paymentRoutes, { db: deps.db, ctx, prefix: "/api/v1" });
   if (!deps.production) app.get("/openapi.json", { schema: { hide: true } }, () => app.swagger());
 
   // In production the API container also serves the built React app.

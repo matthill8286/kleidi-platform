@@ -18,6 +18,8 @@ describe("jurisdiction seed data", () => {
     });
     expect(byCode.EW!.phoneExample).toMatch(/^\+44 /);
     expect(byCode.CY!.asksTenure).toBe(false);
+    expect(byCode.CY!.currency).toBe("EUR");
+    expect(byCode.EW!.currency).toBe("GBP");
   });
 
   for (const j of JURISDICTIONS) {
@@ -39,6 +41,13 @@ describe("jurisdiction seed data", () => {
         for (const r of j.requirements) {
           expect(stages.has(r.stageKey), `${r.key} -> ${r.stageKey}`).toBe(true);
           expect(r.stageKey).not.toBe("completed");
+        }
+      });
+
+      it("gives clients plain-English guidance for every stage", () => {
+        for (const s of j.stages) {
+          expect(s.clientNow?.en.trim(), s.key).toBeTruthy();
+          expect(s.clientAction?.en.trim(), s.key).toBeTruthy();
         }
       });
 
