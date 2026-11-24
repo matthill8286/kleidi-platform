@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
+import { ExplanationView } from "../../components/explanations.tsx";
 import { ErrorAlert, Field, Icon } from "../../components/ui.tsx";
 import { ApiError } from "../../lib/api.ts";
 import { useStageLabels } from "../../lib/cases.ts";
@@ -76,7 +77,7 @@ function CaseView() {
     },
   });
   if (!data.data) return null;
-  const { case: c, documents } = data.data;
+  const { case: c, documents, explanations } = data.data;
   const lang = i18n.resolvedLanguage ?? "en";
   const current = c.stages.find((s) => s.position === "current");
   const requested = documents.filter((d) => d.requested);
@@ -105,6 +106,20 @@ function CaseView() {
           ))}
         </ol>
       </section>
+
+      {explanations.length > 0 && (
+        <section className="card">
+          <div className="card-head">
+            <h2>{t("portal.explanations")}</h2>
+          </div>
+          {explanations.map((e) => (
+            <div key={e.id} style={{ padding: "0 18px 18px", display: "grid", gap: 8 }}>
+              <b>{e.documentTitle}</b>
+              <ExplanationView result={e.result} />
+            </div>
+          ))}
+        </section>
+      )}
 
       {requested.length > 0 && (
         <section className="card">

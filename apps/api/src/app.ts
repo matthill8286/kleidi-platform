@@ -12,7 +12,7 @@ import {
   type ZodTypeProvider,
 } from "fastify-type-provider-zod";
 import type { Db } from "@kleidi/db";
-import type { ObjectStore } from "@kleidi/modules/documents";
+import type { Assist, ObjectStore } from "@kleidi/modules/documents";
 import type { Auth } from "@kleidi/modules/identity";
 import type { Notifier } from "@kleidi/modules/notifications";
 import { registerAuthRoutes } from "./plugins/auth-routes.ts";
@@ -29,12 +29,15 @@ import { healthRoutes } from "./routes/health.ts";
 import { invitationRoutes } from "./routes/invitations.ts";
 import { jurisdictionRoutes } from "./routes/jurisdictions.ts";
 import { meRoutes } from "./routes/me.ts";
+import { explanationRoutes } from "./routes/explanations.ts";
 
 export type AppDeps = {
   db: Db;
   auth: Auth;
   store: ObjectStore;
   notifier: Notifier;
+  // Kleidi Assist, for English explanations of documents. Off when not configured.
+  assist?: Assist | undefined;
   // Production serves over HTTPS, so cookies there are Secure.
   secureCookies?: boolean;
   // Where browsers upload and download files; the page may connect there as well as to itself.
@@ -142,6 +145,13 @@ export async function buildApp(deps: AppDeps) {
     store: deps.store,
     ctx,
     idempotent,
+    prefix: "/api/v1",
+  });
+  await typed.register(explanationRoutes, {
+    db: deps.db,
+    store: deps.store,
+    ctx,
+    assist: deps.assist,
     prefix: "/api/v1",
   });
   if (!deps.production) app.get("/openapi.json", { schema: { hide: true } }, () => app.swagger());

@@ -11,6 +11,7 @@ import {
 } from "../lib/api.ts";
 import { newKey } from "../lib/cases.ts";
 import { useErrorText } from "../lib/errors.ts";
+import { canExplainType, ExplainButton } from "./explanations.tsx";
 import { ErrorAlert, Field, Icon } from "./ui.tsx";
 
 const MAX_BYTES = 25 * 1024 * 1024;
@@ -29,7 +30,16 @@ const STATE_CHIP: Record<ItemState, string> = {
 };
 
 /** The case checklist: current stage open, outstanding items first, each with its files. */
-export function CaseDocumentsCard({ caseId, closed }: { caseId: string; closed: boolean }) {
+export function CaseDocumentsCard({
+  caseId,
+  closed,
+  canExplain = false,
+}: {
+  caseId: string;
+  closed: boolean;
+  // Kleidi Assist is on and the case's documents are not in English.
+  canExplain?: boolean;
+}) {
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? "en";
   const pick = (l: Localised) => l[lang] ?? l.en ?? "";
@@ -90,6 +100,7 @@ export function CaseDocumentsCard({ caseId, closed }: { caseId: string; closed: 
               {expanded &&
                 s.items.map((item) => (
                   <DocumentRow
+                    canExplain={canExplain}
                     key={item.requirementKey}
                     caseId={caseId}
                     title={pick(item.label)}
@@ -107,7 +118,12 @@ export function CaseDocumentsCard({ caseId, closed }: { caseId: string; closed: 
             </div>
           );
         })}
-      <OtherDocuments caseId={caseId} docs={docs.data.other} closed={closed} />
+      <OtherDocuments
+        caseId={caseId}
+        docs={docs.data.other}
+        closed={closed}
+        canExplain={canExplain}
+      />
     </section>
   );
 }
@@ -142,6 +158,7 @@ function DocumentRow({
   document,
   target,
   closed,
+  canExplain,
 }: {
   caseId: string;
   title: string;
@@ -150,6 +167,7 @@ function DocumentRow({
   document: DocumentView | null;
   target: UploadTarget;
   closed: boolean;
+  canExplain: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
@@ -310,6 +328,9 @@ function DocumentRow({
             {t("cases.docs.download")}
           </button>
         )}
+        {canExplain && latest?.scanStatus === "clean" && canExplainType(latest.mimeType) && (
+          <ExplainButton caseId={caseId} versionId={latest.id} />
+        )}
         {!closed && (
           <>
             <input
@@ -342,10 +363,12 @@ function OtherDocuments({
   caseId,
   docs,
   closed,
+  canExplain,
 }: {
   caseId: string;
   docs: DocumentView[];
   closed: boolean;
+  canExplain: boolean;
 }) {
   const { t } = useTranslation();
   const [adding, setAdding] = useState(false);
@@ -377,6 +400,7 @@ function OtherDocuments({
       </div>
       {docs.map((d) => (
         <DocumentRow
+          canExplain={canExplain}
           key={d.id}
           caseId={caseId}
           title={d.title}

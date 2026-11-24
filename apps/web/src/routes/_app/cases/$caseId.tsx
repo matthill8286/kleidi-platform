@@ -3,6 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { CaseDocumentsCard } from "../../../components/case-documents.tsx";
+import { ExplanationsCard, useAssistEnabled } from "../../../components/explanations.tsx";
 import { PartyRow } from "../../../components/client-access.tsx";
 import { CaseDeadlinesCard } from "../../../components/deadlines.tsx";
 import { ErrorAlert, Field, Icon } from "../../../components/ui.tsx";
@@ -28,6 +29,10 @@ function CasePage() {
   const { caseId } = Route.useParams();
   const { firm } = Route.useRouteContext();
   const queryClient = useQueryClient();
+  const assistEnabled = useAssistEnabled();
+  const jurisdiction = useJurisdiction(firm.jurisdictionCode);
+  // Explanations are for documents in another language, such as Greek in Cyprus.
+  const canExplain = assistEnabled && Boolean(jurisdiction) && jurisdiction?.defaultLocale !== "en";
   const errorText = useErrorText();
   const detail = useQuery({ queryKey: ["case", caseId], queryFn: () => api.getCase(caseId) });
   // Shared with the documents card, so the checklist and the stage gate stay in step.
@@ -154,7 +159,9 @@ function CasePage() {
           <CaseDocumentsCard
             caseId={c.id}
             closed={c.status === "completed" || c.status === "cancelled"}
+            canExplain={canExplain}
           />
+          {assistEnabled && <ExplanationsCard caseId={c.id} />}
           <section className="card">
             <div className="card-head">
               <h2>{t("cases.detail.timeline")}</h2>
@@ -552,6 +559,12 @@ function ActivityCard({
         return t(a.metadata.requested ? "portal.events.requested" : "portal.events.unrequested", {
           title,
         });
+      case "documents.ExplanationCreated":
+        return t("cases.events.explained", { title });
+      case "documents.ExplanationShared":
+        return m.shared
+          ? t("cases.events.explanationShared", { title })
+          : t("cases.events.explanationUnshared", { title });
       case "documents.VersionDownloaded":
         return m.client
           ? t("portal.events.clientDownloaded", { name: m.client, title })
