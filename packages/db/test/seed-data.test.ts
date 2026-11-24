@@ -44,10 +44,15 @@ describe("jurisdiction seed data", () => {
         }
       });
 
-      it("gives clients plain-English guidance for every stage", () => {
+      it("gives clients guidance for every stage in English, Greek and Russian", () => {
         for (const s of j.stages) {
-          expect(s.clientNow?.en.trim(), s.key).toBeTruthy();
-          expect(s.clientAction?.en.trim(), s.key).toBeTruthy();
+          for (const lang of ["en", "el", "ru"] as const) {
+            expect(s.clientNow?.[lang]?.trim(), `${s.key} now ${lang}`).toBeTruthy();
+            expect(s.clientAction?.[lang]?.trim(), `${s.key} action ${lang}`).toBeTruthy();
+          }
+          // A translation that is just the English copied across would pass the check above.
+          expect(s.clientNow!.el).not.toBe(s.clientNow!.en);
+          expect(s.clientNow!.ru).not.toBe(s.clientNow!.en);
         }
       });
 
