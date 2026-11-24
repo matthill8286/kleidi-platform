@@ -10,7 +10,7 @@ export type Me = {
     smsReminders: boolean;
     twoFactorEnabled: boolean;
   };
-  firms: { id: string; name: string; slug: string; role: Role }[];
+  firms: { id: string; name: string; slug: string; jurisdictionCode: string; role: Role }[];
 };
 
 export type Team = {
@@ -27,6 +27,16 @@ export type InvitationPreview = {
 
 export type CaseStatus = "open" | "on_hold" | "completed" | "cancelled";
 export type PropertyType = "resale" | "offplan" | "land";
+export type Tenure = "freehold" | "leasehold" | "commonhold";
+
+export type Jurisdiction = {
+  code: string;
+  name: string;
+  defaultLocale: string;
+  timezone: string;
+  phoneExample: string;
+  asksTenure: boolean;
+};
 export type PartyRole = "buyer" | "seller" | "developer" | "bank";
 export type Localised = Record<string, string>;
 
@@ -62,6 +72,7 @@ export type PartyInput = { role: PartyRole; fullName: string; email?: string; ph
 export type CaseDetail = Omit<CaseSummary, "buyers"> & {
   jurisdictionCode: string;
   plotOrRegNo: string | null;
+  tenure: Tenure | null;
   developerName: string | null;
   statusReason: string | null;
   version: number;
@@ -84,6 +95,7 @@ export type NewCase = {
   propertyAddress: string;
   plotOrRegNo?: string;
   propertyType: PropertyType;
+  tenure?: Tenure;
   developerName?: string;
   parties: PartyInput[];
 };
@@ -260,8 +272,12 @@ const writeHeaders = (key: string, version?: number) => ({
 
 export const api = {
   me: () => request<Me>("GET", "/api/v1/me"),
-  createFirm: (name: string) =>
-    request<{ id: string; name: string }>("POST", "/api/v1/firms", { name }),
+  createFirm: (name: string, jurisdictionCode: string) =>
+    request<{ id: string; name: string; jurisdictionCode: string }>("POST", "/api/v1/firms", {
+      name,
+      jurisdictionCode,
+    }),
+  jurisdictions: () => request<Jurisdiction[]>("GET", "/api/v1/jurisdictions"),
   team: () => request<Team>("GET", "/api/v1/team"),
   removeMember: (userId: string) => request<void>("DELETE", `/api/v1/team/members/${userId}`),
   invite: (email: string, role: Role) =>

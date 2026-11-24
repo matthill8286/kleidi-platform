@@ -18,9 +18,11 @@ export {
 export {
   CASE_STATUSES,
   PROPERTY_TYPES,
+  TENURES,
   type CaseStatus,
   type Command,
   type PropertyType,
+  type Tenure,
 } from "./domain.ts";
 export type {
   CaseOpened,

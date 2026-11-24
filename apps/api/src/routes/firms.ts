@@ -5,7 +5,12 @@ import { AppError } from "@kleidi/kernel";
 import { createFirm, inviteMember, listTeam, removeMember, ROLES } from "@kleidi/modules/firms";
 import type { Context } from "../plugins/context.ts";
 
-const Firm = z.object({ id: z.string(), name: z.string(), slug: z.string() });
+const Firm = z.object({
+  id: z.string(),
+  name: z.string(),
+  slug: z.string(),
+  jurisdictionCode: z.string(),
+});
 const Invitation = z.object({
   id: z.string(),
   email: z.string(),
@@ -33,7 +38,16 @@ export const firmRoutes: FastifyPluginAsyncZod<{
 }> = async (app, { db, ctx, firmCreators }) => {
   app.post(
     "/firms",
-    { schema: { body: z.object({ name: z.string().min(2).max(120) }), response: { 201: Firm } } },
+    {
+      schema: {
+        body: z.object({
+          name: z.string().min(2).max(120),
+          // Two-letter code from GET /jurisdictions. Cyprus when left out.
+          jurisdictionCode: z.string().length(2).toUpperCase().optional(),
+        }),
+        response: { 201: Firm },
+      },
+    },
     async (request, reply) => {
       const user = await ctx.requireUser(request);
       if (firmCreators && !firmCreators.includes(user.email.toLowerCase())) {
@@ -43,8 +57,17 @@ export const firmRoutes: FastifyPluginAsyncZod<{
           "firmCreationClosed",
         );
       }
-      const firm = await createFirm(db, { name: request.body.name, actor: user });
-      return reply.code(201).send({ id: firm.id, name: firm.name, slug: firm.slug });
+      const firm = await createFirm(db, {
+        name: request.body.name,
+        jurisdictionCode: request.body.jurisdictionCode,
+        actor: user,
+      });
+      return reply.code(201).send({
+        id: firm.id,
+        name: firm.name,
+        slug: firm.slug,
+        jurisdictionCode: firm.jurisdictionCode,
+      });
     },
   );
 

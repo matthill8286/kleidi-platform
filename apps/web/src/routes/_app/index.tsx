@@ -14,7 +14,7 @@ function Cases() {
   const { t, i18n } = useTranslation();
   const { firm } = Route.useRouteContext();
   const navigate = useNavigate();
-  const { label } = useStageLabels();
+  const { label } = useStageLabels(firm.jurisdictionCode);
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<CaseStatus | "">("");
   const list = useInfiniteQuery({

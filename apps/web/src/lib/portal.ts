@@ -30,6 +30,7 @@ export type PortalCase = {
   you: { name: string; role: string };
   case: {
     reference: string;
+    jurisdictionCode: string;
     propertyAddress: string | null;
     status: string;
     stages: {

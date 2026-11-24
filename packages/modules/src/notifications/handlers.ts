@@ -5,10 +5,11 @@ import { systemClock, type Clock, type StoredEvent } from "@kleidi/kernel";
 import { findCase, findCasesByIds } from "../cases/index.ts";
 import { listDeadlines, type ReminderDue } from "../deadlines/index.ts";
 import { listAttentionDocuments, listStageGaps } from "../documents/index.ts";
-import { listFirmIds, listTeam } from "../firms/index.ts";
+import { listFirmJurisdictions, listTeam } from "../firms/index.ts";
 import { findUsersByIds } from "../identity/index.ts";
-import { getTemplate } from "../jurisdictions/index.ts";
+import { getTemplate, listJurisdictions } from "../jurisdictions/index.ts";
 import type { Notifier, OutboundMessage } from "./notifier.ts";
+import { localDay, localHour } from "./schedule.ts";
 import {
   asLocale,
   DOCUMENT_STATES,
@@ -223,11 +224,18 @@ export async function sendDailyDigests(
   notifier: Notifier,
   appUrl: string,
   clock: Clock = systemClock,
+  options: { atLocalHour?: number } = {},
 ) {
   const now = clock.now();
-  const day = now.toLocaleDateString("en-CA", { timeZone: "Asia/Nicosia" });
+  const zones = new Map((await listJurisdictions(db)).map((j) => [j.code, j.timezone]));
   let sent = 0;
-  for (const firmId of await listFirmIds(db)) {
+  for (const { id: firmId, jurisdictionCode } of await listFirmJurisdictions(db)) {
+    const timeZone = zones.get(jurisdictionCode) ?? "UTC";
+    // The worker runs hourly; each firm hears from it at its own morning hour.
+    if (options.atLocalHour !== undefined && localHour(now, timeZone) !== options.atLocalHour) {
+      continue;
+    }
+    const day = localDay(now, timeZone);
     const [team, open, attention, stageGaps] = await Promise.all([
       listTeam(db, firmId),
       listDeadlines(db, firmId, {}, clock),

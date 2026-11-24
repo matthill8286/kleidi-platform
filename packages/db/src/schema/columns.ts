@@ -1,6 +1,7 @@
 import { timestamp, uuid } from "drizzle-orm/pg-core";
 
-export type Localised = { en: string; el: string; ru: string };
+/** Text in each language. English is always present; other languages fall back to it. */
+export type Localised = { en: string; el?: string; ru?: string };
 
 export const id = () => uuid("id").primaryKey().defaultRandom();
 export const createdAt = () =>

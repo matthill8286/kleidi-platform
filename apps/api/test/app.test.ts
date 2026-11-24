@@ -80,6 +80,43 @@ describe.skipIf(!process.env.DATABASE_URL)("api with the database", () => {
     expect(body.requirements.map((r: { key: string }) => r.key)).toContain("deposited_contract");
     await app.close();
   });
+
+  it("lists the jurisdictions a firm can practise in", async () => {
+    const app = await appWith(db);
+    const res = await app.inject({ method: "GET", url: "/api/v1/jurisdictions" });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual([
+      {
+        code: "CY",
+        name: "Cyprus",
+        defaultLocale: "el",
+        timezone: "Asia/Nicosia",
+        phoneExample: "+357 99 123456",
+        asksTenure: false,
+      },
+      {
+        code: "EW",
+        name: "England and Wales",
+        defaultLocale: "en",
+        timezone: "Europe/London",
+        phoneExample: "+44 7700 900123",
+        asksTenure: true,
+      },
+    ]);
+    await app.close();
+  });
+
+  it("returns the England and Wales template with English-only labels", async () => {
+    const app = await appWith(db);
+    const res = await app.inject({ method: "GET", url: "/api/v1/jurisdictions/ew/template" });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.code).toBe("EW");
+    expect(body.stages[0]).toEqual({ key: "instruction", label: { en: "Instruction and ID" } });
+    expect(body.stages.at(-1).key).toBe("completed");
+    expect(body.requirements.map((r: { key: string }) => r.key)).toContain("title_register");
+    await app.close();
+  });
 });
 
 describe("firm creators", () => {

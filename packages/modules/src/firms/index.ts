@@ -6,6 +6,7 @@ export {
   getMembership,
   inviteMember,
   listFirmIds,
+  listFirmJurisdictions,
   listMyFirms,
   listTeam,
   previewInvitation,

@@ -1,4 +1,4 @@
-import { integer, jsonb, pgTable, text, uniqueIndex } from "drizzle-orm/pg-core";
+import { boolean, integer, jsonb, pgTable, text, uniqueIndex } from "drizzle-orm/pg-core";
 import { id, type Localised } from "./columns.ts";
 
 // Jurisdiction configuration: new countries are new rows, not new code.
@@ -6,6 +6,12 @@ export const jurisdictions = pgTable("jurisdictions", {
   code: text("code").primaryKey(),
   name: text("name").notNull(),
   defaultLocale: text("default_locale").notNull(),
+  // IANA zone for morning messages, e.g. Europe/London.
+  timezone: text("timezone").notNull().default("Asia/Nicosia"),
+  // Shown as the placeholder in phone fields.
+  phoneExample: text("phone_example").notNull().default("+357 99 123456"),
+  // Whether cases record freehold or leasehold, as in England and Wales.
+  asksTenure: boolean("asks_tenure").notNull().default(false),
 });
 
 export const stageTemplates = pgTable(

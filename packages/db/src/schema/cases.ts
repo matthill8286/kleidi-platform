@@ -16,6 +16,7 @@ import { jurisdictions } from "./jurisdictions.ts";
 
 export const caseStatus = pgEnum("case_status", ["open", "on_hold", "completed", "cancelled"]);
 export const partyRole = pgEnum("party_role", ["buyer", "seller", "developer", "bank"]);
+export const tenure = pgEnum("tenure", ["freehold", "leasehold", "commonhold"]);
 
 export const cases = pgTable(
   "cases",
@@ -29,6 +30,8 @@ export const cases = pgTable(
     propertyAddress: text("property_address"),
     plotOrRegNo: text("plot_or_reg_no"),
     propertyType: text("property_type"),
+    // Only asked where the jurisdiction uses it (asks_tenure).
+    tenure: tenure("tenure"),
     developerName: text("developer_name"),
     currentStageKey: text("current_stage_key").notNull(),
     status: caseStatus("status").notNull().default("open"),
@@ -82,7 +85,7 @@ export const caseStages = pgTable(
   (t) => [index("case_stages_case").on(t.caseId)],
 );
 
-// Per-firm, per-year sequence behind references like CY-2026-007.
+// Per-firm, per-year sequence behind references like CY-2026-007 or EW-2026-007.
 export const caseCounters = pgTable(
   "case_counters",
   {

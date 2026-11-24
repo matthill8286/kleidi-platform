@@ -122,6 +122,64 @@ describe.skipIf(!process.env.DATABASE_URL)("cases", () => {
     });
   });
 
+  it("opens England and Wales cases with their own stages, references and tenure", async () => {
+    const { c } = await enrolledUser(app, "Harriet Clarke");
+    const firm = await c.post("/api/v1/firms", {
+      name: "Clarke Conveyancing",
+      jurisdictionCode: "ew",
+    });
+    expect(firm.statusCode).toBe(201);
+    expect(firm.json().jurisdictionCode).toBe("EW");
+    c.useFirm(firm.json().id);
+
+    const opened = await c.post("/api/v1/cases", {
+      propertyAddress: "Flat 4, 21 Mill Road, Cambridge CB1 2AD",
+      plotOrRegNo: "CB123456",
+      propertyType: "resale",
+      tenure: "leasehold",
+      parties: [{ role: "buyer", fullName: "Sam Patel", email: "sam@example.test" }],
+    });
+    expect(opened.statusCode).toBe(201);
+    const created = opened.json();
+    expect(created.reference).toMatch(/^EW-\d{4}-001$/);
+    expect(created.jurisdictionCode).toBe("EW");
+    expect(created.tenure).toBe("leasehold");
+    expect(created.currentStageKey).toBe("instruction");
+    expect(created.stages.map((s: { key: string }) => s.key)).toEqual([
+      "instruction",
+      "pre_contract",
+      "enquiries",
+      "mortgage",
+      "exchange",
+      "completion",
+      "post_completion",
+      "completed",
+    ]);
+    // Instruction has three checklist items, so moving on without them is held back.
+    const held = await c.post(
+      `/api/v1/cases/${created.id}/transitions`,
+      { kind: "advance" },
+      { "if-match": '"v1"' },
+    );
+    expect(held.statusCode).toBe(409);
+    expect(held.json()).toMatchObject({ messageKey: "stageIncomplete", params: { count: 3 } });
+  });
+
+  it("refuses a firm in a jurisdiction Kleidi does not cover", async () => {
+    const { c } = await enrolledUser(app, "Nowhere Lawyer");
+    const res = await c.post("/api/v1/firms", { name: "Nowhere Law", jurisdictionCode: "ZZ" });
+    expect(res.statusCode).toBe(422);
+    expect(res.json()).toMatchObject({ messageKey: "jurisdictionUnknown" });
+  });
+
+  it("keeps Cyprus as the default and rejects an unknown tenure", async () => {
+    const c = await lawyerWithFirm("Default Firm");
+    const opened = await c.post("/api/v1/cases", NEW_CASE);
+    expect(opened.json()).toMatchObject({ jurisdictionCode: "CY", tenure: null });
+    const bad = await c.post("/api/v1/cases", { ...NEW_CASE, tenure: "rented" });
+    expect(bad.statusCode).toBe(422);
+  });
+
   it("locks a completed case until a firm admin reopens it", async () => {
     const c = await lawyerWithFirm("Closing Lawyer");
     const created = (await c.post("/api/v1/cases", NEW_CASE)).json();
