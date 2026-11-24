@@ -190,7 +190,10 @@
       "stageSkipped": "moved the case to {{to}} with {{count}} checklist items unfinished",
       "accepted": "accepted {{title}} (v{{version}})",
       "rejected": "rejected {{title}} (v{{version}})",
-      "downloaded": "downloaded {{title}} (v{{version}})"
+      "downloaded": "downloaded {{title}} (v{{version}})",
+      "explained": "asked for an English explanation of {{title}}",
+      "explanationShared": "shared the English explanation of {{title}} with the client",
+      "explanationUnshared": "stopped sharing the English explanation of {{title}}"
     },
     "docs": {
       "title": "Documents",
@@ -232,6 +235,34 @@
       "accept": "Accept",
       "reject": "Ask for a new one",
       "rejectReason": "What should the client send instead?"
+    }
+  },
+  "assist": {
+    "title": "English explanations",
+    "explain": "Explain in English",
+    "questionHint": "Optional: a question to answer, such as \"Can the buyer get a title deed?\"",
+    "run": "Explain",
+    "running": "Explaining…",
+    "wait": "Kleidi Assist is reading the document. This takes about a minute.",
+    "by": "{{file}}, explained at the request of {{name}} on {{date}}",
+    "asked": "Question: {{question}}",
+    "share": "Share with client",
+    "sharedWithClient": "Shared with client",
+    "titleStatus": "Title",
+    "owner": "Registered owner",
+    "charges": "Charges on the property",
+    "risks": "Risks",
+    "questions": "Questions for the Cypriot lawyer",
+    "statuses": {
+      "issued": "issued",
+      "pending": "pending",
+      "trapped": "trapped",
+      "unclear": "unclear"
+    },
+    "severity": {
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
     }
   },
   "team": {
@@ -358,7 +389,11 @@
     "adminsOnlyRemove": "Only firm admins can remove people.",
     "memberNotFound": "This person is not in the firm.",
     "lastAdmin": "A firm needs at least one admin. Make someone else an admin first.",
-    "jurisdictionUnknown": "Kleidi does not cover that country yet."
+    "jurisdictionUnknown": "Kleidi does not cover that country yet.",
+    "assistUnavailable": "English explanations are not switched on for this firm.",
+    "assistFailed": "Kleidi Assist could not explain this document. Try again in a moment.",
+    "explainUnsupported": "Kleidi Assist reads PDF, JPEG, PNG and text files up to 15 MB.",
+    "explanationNotFound": "This explanation could not be found."
   },
   "deadlines": {
     "heading": "Deadlines",
@@ -505,6 +540,7 @@
       "clientSent": "{{name}} sent {{title}}",
       "partyRemoved": "removed {{name}} ({{role}}) from the case",
       "clientDownloaded": "{{name}} downloaded {{title}}"
-    }
+    },
+    "explanations": "Your documents explained in English"
   }
 }

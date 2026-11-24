@@ -4,6 +4,7 @@ import {
   date,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   text,
@@ -86,4 +87,33 @@ export const documentVersions = pgTable(
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex("document_versions_doc_version").on(t.documentId, t.version)],
+);
+
+// An AI explanation of one document version, from Kleidi Assist. Firm-only until shared.
+export const documentExplanations = pgTable(
+  "document_explanations",
+  {
+    id: id(),
+    firmId: firmRef(),
+    caseId: uuid("case_id")
+      .notNull()
+      .references(() => cases.id, { onDelete: "cascade" }),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => documents.id, { onDelete: "cascade" }),
+    versionId: uuid("version_id")
+      .notNull()
+      .references(() => documentVersions.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    question: text("question"),
+    result: jsonb("result").$type<Record<string, unknown>>().notNull(),
+    markdown: text("markdown").notNull(),
+    model: text("model").notNull(),
+    sharedWithClient: boolean("shared_with_client").notNull().default(false),
+    createdById: uuid("created_by_id")
+      .notNull()
+      .references(() => users.id),
+    createdAt: createdAt(),
+  },
+  (t) => [index("document_explanations_case").on(t.caseId)],
 );

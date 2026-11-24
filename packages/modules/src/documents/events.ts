@@ -42,6 +42,15 @@ export type ExpiryFlagged = DomainEvent<
   OnCase & { state: "expiring" | "expired"; expiresOn: string }
 >;
 
+export type ExplanationCreated = DomainEvent<
+  "documents.ExplanationCreated",
+  OnCase & { explanationId: string; versionId: string; model: string }
+>;
+export type ExplanationShared = DomainEvent<
+  "documents.ExplanationShared",
+  OnCase & { explanationId: string; shared: boolean }
+>;
+
 export type DocumentsEvent =
   | VersionUploaded
   | VersionReleased
@@ -51,4 +60,6 @@ export type DocumentsEvent =
   | VersionRejected
   | DocumentUpdated
   | ClientRequestChanged
-  | ExpiryFlagged;
+  | ExpiryFlagged
+  | ExplanationCreated
+  | ExplanationShared;

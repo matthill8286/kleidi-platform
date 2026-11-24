@@ -218,6 +218,15 @@ export const portalRoutes: FastifyPluginAsyncZod<Deps> = async (app, deps) => {
                   .nullable(),
               }),
             ),
+            // English explanations the lawyer has shared.
+            explanations: z.array(
+              z.object({
+                id: z.string(),
+                documentTitle: z.string(),
+                result: z.record(z.string(), z.unknown()),
+                createdAt: z.date(),
+              }),
+            ),
             consents: z.array(
               z.object({
                 id: z.string(),

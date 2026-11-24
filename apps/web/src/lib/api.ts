@@ -29,6 +29,46 @@ export type CaseStatus = "open" | "on_hold" | "completed" | "cancelled";
 export type PropertyType = "resale" | "offplan" | "land";
 export type Tenure = "freehold" | "leasehold" | "commonhold";
 
+/** Kleidi Assist's reading of a Cypriot document. Fields come straight from the service. */
+export type CyprusResult = {
+  document_type?: string;
+  language?: string;
+  property?: Record<string, string | null>;
+  registered_owner?: string | null;
+  title_status?: "issued" | "pending" | "trapped" | "unclear";
+  encumbrances?: {
+    kind: string;
+    reference: string | null;
+    in_favour_of: string | null;
+    amount: string | null;
+    meaning: string;
+  }[];
+  risks?: {
+    severity: "high" | "medium" | "low";
+    issue: string;
+    original_text: string;
+    english: string;
+  }[];
+  plain_english_summary?: string;
+  questions_for_cypriot_lawyer?: string[];
+  caveat?: string;
+};
+
+export type Explanation = {
+  id: string;
+  documentId: string;
+  versionId: string;
+  documentTitle: string;
+  fileName: string;
+  question: string | null;
+  result: CyprusResult;
+  markdown: string;
+  model: string;
+  sharedWithClient: boolean;
+  createdBy: string | null;
+  createdAt: string;
+};
+
 export type Jurisdiction = {
   code: string;
   name: string;
@@ -334,6 +374,15 @@ export const api = {
     request<void>("POST", `/api/v1/cases/${caseId}/documents/requests`, { ...target, requested }),
   reviewDocument: (versionId: string, body: { decision: "accepted" | "rejected"; note?: string }) =>
     request<void>("POST", `/api/v1/documents/versions/${versionId}/review`, body),
+  features: () => request<{ assist: boolean }>("GET", "/api/v1/features"),
+  explain: (versionId: string, question?: string) =>
+    request<Explanation>("POST", `/api/v1/documents/versions/${versionId}/explanations`, {
+      ...(question ? { question } : {}),
+    }),
+  explanations: (caseId: string) =>
+    request<Explanation[]>("GET", `/api/v1/cases/${caseId}/explanations`),
+  shareExplanation: (id: string, sharedWithClient: boolean) =>
+    request<void>("PATCH", `/api/v1/explanations/${id}`, { sharedWithClient }),
   downloadLink: (versionId: string) =>
     request<{ url: string }>("GET", `/api/v1/documents/versions/${versionId}/download`),
   updateDocument: (

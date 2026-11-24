@@ -190,7 +190,10 @@
       "stageSkipped": "перевёл(а) дело на этап «{{to}}», не выполнено пунктов: {{count}}",
       "accepted": "принял(а) {{title}} (в{{version}})",
       "rejected": "отклонил(а) {{title}} (в{{version}})",
-      "downloaded": "скачал(а) {{title}} (в{{version}})"
+      "downloaded": "скачал(а) {{title}} (в{{version}})",
+      "explained": "запросил пояснение на английском для {{title}}",
+      "explanationShared": "показал клиенту пояснение на английском для {{title}}",
+      "explanationUnshared": "скрыл от клиента пояснение для {{title}}"
     },
     "docs": {
       "title": "Документы",
@@ -232,6 +235,34 @@
       "accept": "Принять",
       "reject": "Запросить новый",
       "rejectReason": "Что клиент должен прислать вместо этого?"
+    }
+  },
+  "assist": {
+    "title": "Пояснения на английском",
+    "explain": "Пояснить на английском",
+    "questionHint": "Необязательно: вопрос, например «Может ли покупатель получить титул?»",
+    "run": "Пояснить",
+    "running": "Готовим пояснение…",
+    "wait": "Kleidi Assist читает документ. Это занимает около минуты.",
+    "by": "{{file}}, пояснение запрошено: {{name}}, {{date}}",
+    "asked": "Вопрос: {{question}}",
+    "share": "Показать клиенту",
+    "sharedWithClient": "Показано клиенту",
+    "titleStatus": "Титул",
+    "owner": "Зарегистрированный владелец",
+    "charges": "Обременения",
+    "risks": "Риски",
+    "questions": "Вопросы кипрскому юристу",
+    "statuses": {
+      "issued": "выдан",
+      "pending": "ожидается",
+      "trapped": "заблокирован",
+      "unclear": "неясно"
+    },
+    "severity": {
+      "high": "Высокий",
+      "medium": "Средний",
+      "low": "Низкий"
     }
   },
   "team": {
@@ -358,7 +389,11 @@
     "adminsOnlyRemove": "Удалять людей могут только администраторы фирмы.",
     "memberNotFound": "Этого человека нет в фирме.",
     "lastAdmin": "В фирме должен быть хотя бы один администратор. Сначала назначьте другого.",
-    "jurisdictionUnknown": "Kleidi пока не работает в этой стране."
+    "jurisdictionUnknown": "Kleidi пока не работает в этой стране.",
+    "assistUnavailable": "Пояснения на английском не включены для этой фирмы.",
+    "assistFailed": "Kleidi Assist не смог пояснить этот документ. Попробуйте ещё раз чуть позже.",
+    "explainUnsupported": "Kleidi Assist читает файлы PDF, JPEG, PNG и текстовые файлы до 15 МБ.",
+    "explanationNotFound": "Пояснение не найдено."
   },
   "deadlines": {
     "heading": "Сроки",
@@ -505,6 +540,7 @@
       "clientSent": "{{name}} отправил(а) {{title}}",
       "partyRemoved": "удалил(а) {{name}} ({{role}}) из дела",
       "clientDownloaded": "{{name}} скачал(а) {{title}}"
-    }
+    },
+    "explanations": "Ваши документы с пояснениями на английском"
   }
 }
