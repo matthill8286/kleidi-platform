@@ -1,9 +1,10 @@
 name: CI
 
+# CI runs on pull requests and by hand only, not again on pushes or when a
+# checked pull request is merged.
 on:
-  push:
-    branches: [main]
   pull_request:
+  workflow_dispatch:
 
 jobs:
   verify:
