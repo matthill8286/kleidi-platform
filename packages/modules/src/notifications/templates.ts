@@ -29,6 +29,7 @@ export type TemplateData = {
   };
   "portal-sign-in": { firmName: string; link: string };
   "verify-email": { name: string; link: string };
+  "reset-password": { name: string; link: string };
   "portal-code": { code: string };
   "portal-message": { firmName: string; authorName: string; caseReference: string; link: string };
   "portal-message-sms": { firmName: string; caseReference: string };
@@ -288,6 +289,20 @@ const TEMPLATES: { [K in TemplateName]: Copy<TemplateData[K]> } = {
     ru: (d) => ({
       subject: "Подтвердите email для Kleidi",
       text: `Здравствуйте, ${d.name}!\n\nПодтвердите адрес email, чтобы завершить настройку аккаунта Kleidi: ${d.link}\n\nЕсли вы не регистрировались, просто проигнорируйте письмо.`,
+    }),
+  },
+  "reset-password": {
+    en: (d) => ({
+      subject: "Reset your Kleidi password",
+      text: `Hello ${d.name},\n\nChoose a new password for your Kleidi account: ${d.link}\n\nThe link works once, for 1 hour. If you did not ask to reset your password, you can ignore this email and your password stays the same.`,
+    }),
+    el: (d) => ({
+      subject: "Επαναφορά κωδικού πρόσβασης Kleidi",
+      text: `Γεια σας ${d.name},\n\nΕπιλέξτε νέο κωδικό πρόσβασης για τον λογαριασμό σας στο Kleidi: ${d.link}\n\nΟ σύνδεσμος λειτουργεί μία φορά, για 1 ώρα. Αν δεν ζητήσατε επαναφορά κωδικού, αγνοήστε αυτό το email και ο κωδικός σας παραμένει ίδιος.`,
+    }),
+    ru: (d) => ({
+      subject: "Сброс пароля Kleidi",
+      text: `Здравствуйте, ${d.name}!\n\nЗадайте новый пароль для аккаунта Kleidi: ${d.link}\n\nСсылка действует один раз в течение 1 часа. Если вы не запрашивали сброс пароля, просто проигнорируйте письмо, и пароль останется прежним.`,
     }),
   },
   "portal-code": {

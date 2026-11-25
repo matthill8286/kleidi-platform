@@ -14,6 +14,7 @@ import {
   uniqueEmail,
   WEB_ORIGIN,
   sendVerificationEmail,
+  sendResetPasswordEmail,
 } from "./helpers.ts";
 
 // Integration: a buyer abroad follows their case through the portal and never sees firm-only files.
@@ -33,6 +34,7 @@ describe.skipIf(!process.env.DATABASE_URL || !process.env.DATABASE_ADMIN_URL)(
         secret: TEST_SECRET,
         trustedOrigins: [WEB_ORIGIN],
         sendVerificationEmail,
+        sendResetPasswordEmail,
       });
       app = await buildApp({ db, auth, webOrigin: WEB_ORIGIN, store, notifier: testNotifier() });
     });

@@ -18,6 +18,15 @@ const auth = createAuth({
       data: { name, link: url },
     });
   },
+  sendResetPasswordEmail: async ({ to, name, locale, url }) => {
+    await notifier.send({
+      channel: "email",
+      to,
+      template: "reset-password",
+      locale: asLocale(locale),
+      data: { name, link: url },
+    });
+  },
   db,
   baseURL: env.WEB_ORIGIN,
   secret: env.BETTER_AUTH_SECRET,

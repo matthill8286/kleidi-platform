@@ -57,6 +57,7 @@ const auth = createAuth({
   secret: env.BETTER_AUTH_SECRET,
   trustedOrigins: [env.WEB_ORIGIN],
   sendVerificationEmail: async () => {},
+  sendResetPasswordEmail: async () => {},
 });
 const app = await buildApp({
   db,

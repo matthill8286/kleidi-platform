@@ -12,6 +12,7 @@ import {
   testStore,
   testNotifier,
   sendVerificationEmail,
+  sendResetPasswordEmail,
 } from "./helpers.ts";
 
 const NEW_CASE = {
@@ -36,6 +37,7 @@ describe.skipIf(!process.env.DATABASE_URL)("cases", () => {
       secret: TEST_SECRET,
       trustedOrigins: [WEB_ORIGIN],
       sendVerificationEmail,
+      sendResetPasswordEmail,
     });
     app = await buildApp({
       db,

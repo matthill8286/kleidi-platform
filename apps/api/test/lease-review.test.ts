@@ -9,6 +9,7 @@ import {
   client,
   enrolledUser,
   sendVerificationEmail,
+  sendResetPasswordEmail,
   sentMessages,
   TEST_SECRET,
   testNotifier,
@@ -66,6 +67,7 @@ describe.skipIf(!process.env.DATABASE_URL || !process.env.DATABASE_ADMIN_URL)(
         secret: TEST_SECRET,
         trustedOrigins: [WEB_ORIGIN],
         sendVerificationEmail,
+        sendResetPasswordEmail,
       });
       const base = { db, auth, webOrigin: WEB_ORIGIN, store, notifier: testNotifier() };
       app = await buildApp({ ...base, assist });
