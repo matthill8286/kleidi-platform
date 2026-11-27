@@ -125,6 +125,22 @@ export const sendVerificationEmail = async (m: {
   });
 };
 
+/** Captures password reset emails, so tests can read the token from the link. */
+export const sendResetPasswordEmail = async (m: {
+  to: string;
+  name: string;
+  locale: string;
+  url: string;
+}) => {
+  sentMessages.push({
+    channel: "email",
+    to: m.to,
+    template: "reset-password",
+    locale: "en",
+    data: { name: m.name, link: m.url },
+  });
+};
+
 /** Opens the newest verification link sent to this address, signing the browser in. */
 export async function verifyEmail(c: ReturnType<typeof client>, email: string) {
   const message = sentMessages

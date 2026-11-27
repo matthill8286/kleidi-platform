@@ -9,6 +9,7 @@ import {
   testStore,
   testNotifier,
   sendVerificationEmail,
+  sendResetPasswordEmail,
 } from "./helpers.ts";
 
 const unreachableDb = {
@@ -26,6 +27,7 @@ const appWith = (db: Db) =>
       secret: TEST_SECRET,
       trustedOrigins: [WEB_ORIGIN],
       sendVerificationEmail,
+      sendResetPasswordEmail,
     }),
     webOrigin: WEB_ORIGIN,
     store: testStore(),

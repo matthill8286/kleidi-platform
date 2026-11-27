@@ -64,10 +64,13 @@ export async function buildApp(deps: AppDeps) {
     logger: deps.logger
       ? {
           serializers: {
-            // Sign-in and invitation links carry secrets in the path; keep them out of logs.
+            // Sign-in and invitation links carry secrets in the path, and password reset
+            // links in ?token=; keep them out of logs.
             req: (req: { method: string; url: string }) => ({
               method: req.method,
-              url: req.url.replace(/\/(link|invitations|invite)\/[^/?]+/g, "/$1/[redacted]"),
+              url: req.url
+                .replace(/\/(link|invitations|invite)\/[^/?]+/g, "/$1/[redacted]")
+                .replace(/([?&]token=)[^&#]*/g, "$1[redacted]"),
             }),
           },
         }

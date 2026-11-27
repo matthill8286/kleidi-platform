@@ -66,6 +66,7 @@ const SAMPLES: { [K in TemplateName]: TemplateData[K] } = {
     when: "today",
   },
   "verify-email": { name: "Elena", link: "https://x/v" },
+  "reset-password": { name: "Elena", link: "https://x/r" },
   "daily-digest": {
     name: "Elena",
     overdue: [],

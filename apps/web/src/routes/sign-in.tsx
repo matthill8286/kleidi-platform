@@ -60,6 +60,12 @@ function SignIn() {
         <Field label={t("auth.password")}>
           <input name="password" type="password" autoComplete="current-password" required />
         </Field>
+        <Link
+          to="/forgot-password"
+          style={{ color: "var(--accent)", fontWeight: 600, justifySelf: "start" }}
+        >
+          {t("auth.forgotPassword")}
+        </Link>
         <ErrorAlert message={error} />
         <button className="btn primary block" disabled={busy}>
           {t("auth.signIn")}

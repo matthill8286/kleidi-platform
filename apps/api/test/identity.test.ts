@@ -14,6 +14,8 @@ import {
   testStore,
   testNotifier,
   sendVerificationEmail,
+  sendResetPasswordEmail,
+  sentMessages,
   verifyEmail,
 } from "./helpers.ts";
 
@@ -32,6 +34,7 @@ describe.skipIf(!process.env.DATABASE_URL || !process.env.DATABASE_ADMIN_URL)(
         secret: TEST_SECRET,
         trustedOrigins: [WEB_ORIGIN],
         sendVerificationEmail,
+        sendResetPasswordEmail,
       });
       app = await buildApp({
         db,
@@ -83,6 +86,73 @@ describe.skipIf(!process.env.DATABASE_URL || !process.env.DATABASE_ADMIN_URL)(
         password: "short",
       });
       expect(res.statusCode).toBe(400);
+    });
+
+    it("resets a forgotten password with a single-use emailed link", async () => {
+      const user = await enrolledUser(app, "Forgetful Lawyer");
+      const resetEmails = () =>
+        sentMessages.filter((m) => m.template === "reset-password" && m.to === user.email);
+
+      // Unknown addresses get the same answer and no email, so nobody can probe for accounts.
+      const unknown = await client(app).post("/api/auth/request-password-reset", {
+        email: uniqueEmail("nobody"),
+      });
+      expect(unknown.statusCode).toBe(200);
+
+      const requested = await client(app).post("/api/auth/request-password-reset", {
+        email: user.email,
+      });
+      expect(requested.statusCode).toBe(200);
+      expect(requested.json()).toEqual(unknown.json());
+      expect(resetEmails()).toHaveLength(1);
+
+      // The link goes to the web app on the configured origin, never the API host.
+      const link = new URL((resetEmails()[0]!.data as { link: string }).link);
+      expect(link.origin).toBe(WEB_ORIGIN);
+      expect(link.pathname).toBe("/reset-password");
+      const token = link.searchParams.get("token")!;
+      expect(token).toBeTruthy();
+
+      // Stored hashed, and it expires within the hour.
+      const userId = (await user.c.get("/api/v1/me")).json().user.id as string;
+      const [stored] = await admin.db
+        .select()
+        .from(schema.verifications)
+        .where(eq(schema.verifications.value, userId));
+      expect(stored!.identifier).not.toContain(token);
+      expect(stored!.expiresAt.getTime()).toBeLessThanOrEqual(Date.now() + 60 * 60 * 1000);
+
+      const tooShort = await client(app).post("/api/auth/reset-password", {
+        token,
+        newPassword: "short",
+      });
+      expect(tooShort.statusCode).toBe(400);
+
+      const newPassword = "a-brand-new-password-for-kleidi";
+      const reset = await client(app).post("/api/auth/reset-password", { token, newPassword });
+      expect(reset.statusCode).toBe(200);
+
+      // The link works once.
+      const reused = await client(app).post("/api/auth/reset-password", {
+        token,
+        newPassword: "yet-another-password-123",
+      });
+      expect(reused.statusCode).toBe(400);
+      expect(reused.json().code).toBe("INVALID_TOKEN");
+
+      // Existing sessions end, the old password stops working and two-factor still applies.
+      expect((await user.c.get("/api/v1/me")).statusCode).toBe(401);
+      const old = await client(app).post("/api/auth/sign-in/email", {
+        email: user.email,
+        password: TEST_PASSWORD,
+      });
+      expect(old.statusCode).toBe(401);
+      const signIn = await client(app).post("/api/auth/sign-in/email", {
+        email: user.email,
+        password: newPassword,
+      });
+      expect(signIn.statusCode).toBe(200);
+      expect(signIn.json().twoFactorRedirect).toBe(true);
     });
 
     it("creates a firm, invites a colleague and lets them join", async () => {

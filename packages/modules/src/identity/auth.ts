@@ -17,7 +17,17 @@ export type AuthOptions = {
     locale: string;
     url: string;
   }) => Promise<void>;
+  /** Sends the single-use link that lets a user who forgot their password choose a new one. */
+  sendResetPasswordEmail: (message: {
+    to: string;
+    name: string;
+    locale: string;
+    url: string;
+  }) => Promise<void>;
 };
+
+/** How long a password reset link works. The email template says the same. */
+const RESET_PASSWORD_TTL_SECONDS = 60 * 60;
 
 export function createAuth(options: AuthOptions) {
   return betterAuth({
@@ -43,6 +53,25 @@ export function createAuth(options: AuthOptions) {
       minPasswordLength: 12,
       autoSignIn: true,
       requireEmailVerification: true,
+      // Better Auth deletes the token when it is used, so each link works once. The link
+      // points straight at the web app's reset page on the configured origin (WEB_ORIGIN).
+      resetPasswordTokenExpiresIn: RESET_PASSWORD_TTL_SECONDS,
+      // Whoever knew the old password is signed out everywhere once it changes.
+      revokeSessionsOnPasswordReset: true,
+      sendResetPassword: async ({ user, token }) => {
+        const url = new URL("/reset-password", options.baseURL);
+        url.searchParams.set("token", token);
+        await options.sendResetPasswordEmail({
+          to: user.email,
+          name: user.name,
+          locale: (user as { locale?: string }).locale ?? "en",
+          url: url.href,
+        });
+      },
+    },
+    // Reset tokens are stored hashed, so a database read alone cannot take over an account.
+    verification: {
+      storeIdentifier: { default: "plain", overrides: { "reset-password:": "hashed" } },
     },
     emailVerification: {
       sendOnSignUp: true,

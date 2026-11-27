@@ -43,7 +43,21 @@
     "invalidCode": "That code is not right. Check your app and try again.",
     "sideTitle": "One shared case file for every property sale",
     "sideLead": "Lawyers, buyers and banks follow each sale from reservation to title deed transfer.",
-    "checkInbox": "We sent a link to {{email}}. Open it to confirm your address and continue."
+    "checkInbox": "We sent a link to {{email}}. Open it to confirm your address and continue.",
+    "forgotPassword": "Forgot your password?",
+    "forgotTitle": "Reset your password",
+    "forgotLead": "Enter the email you sign in with and we will send you a link to choose a new password.",
+    "sendResetLink": "Send reset link",
+    "resetLinkSent": "If an account uses {{email}}, we have sent it a link. It works once, for 1 hour.",
+    "backToSignIn": "Back to sign in",
+    "resetTitle": "Choose a new password",
+    "resetLead": "Your new password signs you out everywhere else.",
+    "newPassword": "New password",
+    "confirmNewPassword": "Repeat new password",
+    "passwordsDiffer": "The two passwords do not match.",
+    "resetPassword": "Save new password",
+    "resetDone": "Your password has changed. Sign in with the new one.",
+    "resetLinkInvalid": "This reset link has expired or was already used. Ask for a new one."
   },
   "security": {
     "title": "Secure your account",
@@ -387,7 +401,8 @@
       "OTP_HAS_EXPIRED": "That code has expired. Enter the new one from your app.",
       "TOO_MANY_ATTEMPTS": "Too many attempts. Wait a few minutes and try again.",
       "TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE": "Too many attempts. Request a new code.",
-      "EMAIL_NOT_VERIFIED": "Confirm your email first. We have sent you a new link."
+      "EMAIL_NOT_VERIFIED": "Confirm your email first. We have sent you a new link.",
+      "INVALID_TOKEN": "This reset link has expired or was already used. Ask for a new one."
     },
     "deadlineTitle": "Give the deadline a title.",
     "deadlinePast": "The deadline must be in the future.",

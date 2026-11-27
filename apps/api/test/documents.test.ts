@@ -10,6 +10,7 @@ import {
   testNotifier,
   WEB_ORIGIN,
   sendVerificationEmail,
+  sendResetPasswordEmail,
 } from "./helpers.ts";
 
 // Integration: document routes against the local Postgres and object storage.
@@ -26,6 +27,7 @@ describe.skipIf(!process.env.DATABASE_URL)("documents", () => {
       secret: TEST_SECRET,
       trustedOrigins: [WEB_ORIGIN],
       sendVerificationEmail,
+      sendResetPasswordEmail,
     });
     app = await buildApp({ db, auth, webOrigin: WEB_ORIGIN, store, notifier: testNotifier() });
   });

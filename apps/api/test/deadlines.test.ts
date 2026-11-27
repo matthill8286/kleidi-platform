@@ -10,6 +10,7 @@ import {
   testNotifier,
   WEB_ORIGIN,
   sendVerificationEmail,
+  sendResetPasswordEmail,
 } from "./helpers.ts";
 
 const inHours = (h: number) => new Date(Date.now() + h * 60 * 60 * 1000).toISOString();
@@ -26,6 +27,7 @@ describe.skipIf(!process.env.DATABASE_URL)("deadlines and profile", () => {
       secret: TEST_SECRET,
       trustedOrigins: [WEB_ORIGIN],
       sendVerificationEmail,
+      sendResetPasswordEmail,
     });
     app = await buildApp({
       db,
