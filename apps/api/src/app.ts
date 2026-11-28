@@ -14,6 +14,7 @@ import {
 import type { Db } from "@kleidi/db";
 import type { Assist, ObjectStore } from "@kleidi/modules/documents";
 import type { Auth } from "@kleidi/modules/identity";
+import { openLicensing, type Licensing } from "@kleidi/modules/licensing";
 import type { Notifier } from "@kleidi/modules/notifications";
 import { registerAuthRoutes } from "./plugins/auth-routes.ts";
 import { createContext } from "./plugins/context.ts";
@@ -52,6 +53,9 @@ export type AppDeps = {
   // Production hides the API description.
   production?: boolean;
   firmCreators?: string[] | undefined;
+  // Reads each firm's licence from the Impakt account service. Left out, licences are not
+  // checked, as in local development.
+  licensing?: Licensing | undefined;
   webOrigin: string;
   webDist?: string | undefined;
   logger?: boolean;
@@ -115,18 +119,20 @@ export async function buildApp(deps: AppDeps) {
   });
 
   registerAuthRoutes(app, deps.auth);
-  const ctx = createContext({ db: deps.db, auth: deps.auth });
+  const licensing = deps.licensing ?? openLicensing;
+  const ctx = createContext({ db: deps.db, auth: deps.auth, licensing });
   const typed = app.withTypeProvider<ZodTypeProvider>();
   await typed.register(healthRoutes, { db: deps.db });
   await typed.register(jurisdictionRoutes, { db: deps.db, prefix: "/api/v1" });
-  await typed.register(meRoutes, { db: deps.db, ctx, prefix: "/api/v1" });
+  await typed.register(meRoutes, { db: deps.db, ctx, licensing, prefix: "/api/v1" });
   await typed.register(firmRoutes, {
     db: deps.db,
     ctx,
     firmCreators: deps.firmCreators,
+    licensing,
     prefix: "/api/v1",
   });
-  await typed.register(invitationRoutes, { db: deps.db, ctx, prefix: "/api/v1" });
+  await typed.register(invitationRoutes, { db: deps.db, ctx, licensing, prefix: "/api/v1" });
   const idempotent = createIdempotency(deps.db);
   await typed.register(caseRoutes, { db: deps.db, ctx, idempotent, prefix: "/api/v1" });
   await typed.register(clientAccessRoutes, {
@@ -143,6 +149,7 @@ export async function buildApp(deps: AppDeps) {
     webOrigin: deps.webOrigin,
     secureCookies: deps.secureCookies ?? false,
     assist: deps.assist,
+    licensing,
     prefix: "/api/portal",
   });
   await typed.register(deadlineRoutes, { db: deps.db, ctx, idempotent, prefix: "/api/v1" });

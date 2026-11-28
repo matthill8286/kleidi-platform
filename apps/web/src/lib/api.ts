@@ -10,7 +10,17 @@ export type Me = {
     smsReminders: boolean;
     twoFactorEnabled: boolean;
   };
-  firms: { id: string; name: string; slug: string; jurisdictionCode: string; role: Role }[];
+  firms: {
+    id: string;
+    name: string;
+    slug: string;
+    jurisdictionCode: string;
+    role: Role;
+    /** What the firm's licence allows now: everything, reading only, or nothing. */
+    access: "full" | "read" | "none";
+    /** Set once the licence has ended: when the firm becomes read-only. */
+    ending: string | null;
+  }[];
 };
 
 export type Team = {
@@ -351,10 +361,11 @@ const writeHeaders = (key: string, version?: number) => ({
 
 export const api = {
   me: () => request<Me>("GET", "/api/v1/me"),
-  createFirm: (name: string, jurisdictionCode: string) =>
+  createFirm: (name: string, jurisdictionCode: string, licenceId?: string) =>
     request<{ id: string; name: string; jurisdictionCode: string }>("POST", "/api/v1/firms", {
       name,
       jurisdictionCode,
+      ...(licenceId ? { licenceId } : {}),
     }),
   jurisdictions: () => request<Jurisdiction[]>("GET", "/api/v1/jurisdictions"),
   team: () => request<Team>("GET", "/api/v1/team"),

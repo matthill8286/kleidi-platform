@@ -61,6 +61,10 @@ services:
       BREVO_SENDER_EMAIL: ${MAIL_FROM_ADDRESS:-no-reply@kleidi.cy}
       TRUSTED_PROXIES: "1"
       FIRM_CREATORS: ${FIRM_CREATORS:-}
+      # The Impakt account service holds each firm's licence. With both set, Kleidi is closed
+      # to sign-up and a firm works only under a licence. Set both or neither.
+      ACCOUNT_INTERNAL_URL: ${ACCOUNT_INTERNAL_URL:-}
+      ACCOUNT_TOKEN: ${ACCOUNT_TOKEN:-}
     depends_on:
       postgres:
         condition: service_healthy

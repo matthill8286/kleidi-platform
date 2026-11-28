@@ -24,6 +24,22 @@ export function safeRedirect(value: unknown): string | undefined {
     : undefined;
 }
 
+const LICENCE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** A licence id from a link we sent, or undefined when it is not one. */
+export const licenceId = (value: unknown): string | undefined =>
+  typeof value === "string" && LICENCE_ID.test(value) ? value : undefined;
+
+/**
+ * The licence a person is setting a firm up under, when the page they are heading to is the
+ * set-up page of a licence link. Sign-up sends it, so the API lets that person make an account.
+ */
+export function licenceInRedirect(redirect: string | undefined): string | undefined {
+  if (!redirect) return undefined;
+  const url = new URL(redirect, window.location.origin);
+  return url.pathname === "/onboarding" ? licenceId(url.searchParams.get("licence")) : undefined;
+}
+
 export const redirectSearch = (search: Record<string, unknown>): { redirect?: string } => {
   const redirect = safeRedirect(search.redirect);
   return redirect ? { redirect } : {};

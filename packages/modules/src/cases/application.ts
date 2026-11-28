@@ -1,4 +1,17 @@
-import { and, asc, desc, eq, ilike, inArray, isNull, lt, or, sql, type SQL } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  isNull,
+  lt,
+  or,
+  sql,
+  type SQL,
+} from "drizzle-orm";
 import { publishEvents, withFirm, type Db, type Tx } from "@kleidi/db";
 import { caseCounters, caseParties, cases, caseStages } from "@kleidi/db/schema/cases";
 import { AppError, systemClock, type Clock, type DomainEvent } from "@kleidi/kernel";
@@ -46,6 +59,8 @@ export type OpenCaseInput = {
   developerName?: string | undefined;
   assignedLawyerId?: string | undefined;
   parties: PartyInput[];
+  /** The most sales the firm's licence lets it open. Null or left out for no limit. */
+  caseLimit?: number | null | undefined;
 };
 
 const entity = (id: string, reference: string) => ({
@@ -85,11 +100,24 @@ export async function openCase(db: Db, input: OpenCaseInput, clock: Clock = syst
 
     const now = clock.now();
     const year = now.getUTCFullYear();
-    const reference = formatReference(
-      jurisdiction,
-      year,
-      await nextSequence(tx, input.firm.firmId, year),
-    );
+    // The counter's row lock, taken here, makes two sales opened at once take turns, so the
+    // count below cannot let both through the last place.
+    const sequence = await nextSequence(tx, input.firm.firmId, year);
+    if (input.caseLimit != null) {
+      const [opened] = await tx
+        .select({ n: count() })
+        .from(cases)
+        .where(eq(cases.firmId, input.firm.firmId));
+      if ((opened?.n ?? 0) >= input.caseLimit) {
+        throw new AppError(
+          "conflict",
+          `Your firm's licence covers ${input.caseLimit} sales, and all of them have been opened. Contact us to open more.`,
+          "caseLimitReached",
+          { limit: input.caseLimit },
+        );
+      }
+    }
+    const reference = formatReference(jurisdiction, year, sequence);
     const [created] = await tx
       .insert(cases)
       .values({

@@ -3,6 +3,7 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import type { Db } from "@kleidi/db";
 import { AppError } from "@kleidi/kernel";
+import { isReadMethod, requireLicence, type Licensing } from "@kleidi/modules/licensing";
 import { grantConsent, revokeConsent } from "@kleidi/modules/consent";
 import {
   clientDownloadLink,
@@ -43,6 +44,7 @@ type Deps = {
   secureCookies: boolean;
   // Kleidi Assist, for English explanations of shared documents. Off when not configured.
   assist?: Assist | undefined;
+  licensing: Licensing;
 };
 
 const ClientExplanation = z.object({
@@ -71,11 +73,23 @@ export const portalRoutes: FastifyPluginAsyncZod<Deps> = async (app, deps) => {
 
   async function requireClient(
     request: FastifyRequest,
-    options: { allowWithoutPrivacy?: boolean } = {},
+    options: {
+      allowWithoutPrivacy?: boolean;
+      // For signing out, which must work whatever the licence says.
+      skipLicence?: boolean;
+      // For the client's own language and privacy answer, which are not the firm's records.
+      allowWhenReadOnly?: boolean;
+    } = {},
   ): Promise<PortalSession> {
     const token = request.cookies[PORTAL_COOKIE];
     const session = token ? await sessionFromToken(db, token) : null;
     if (!session) throw new AppError("unauthenticated", "Sign in to continue", "signIn");
+    // A client follows the firm's licence: nothing while the firm cannot be used, and reading
+    // only while the firm can only be read.
+    if (!options.skipLicence) {
+      const changes = !isReadMethod(request.method) && !options.allowWhenReadOnly;
+      await requireLicence(deps.licensing, session.firmId, changes);
+    }
     if (!session.privacyAccepted && !options.allowWithoutPrivacy) {
       throw new AppError("forbidden", "Accept the privacy notice to continue", "privacyNeeded");
     }
@@ -145,7 +159,7 @@ export const portalRoutes: FastifyPluginAsyncZod<Deps> = async (app, deps) => {
   );
 
   app.post("/sign-out", async (request, reply) => {
-    const session = await requireClient(request, { allowWithoutPrivacy: true });
+    const session = await requireClient(request, { allowWithoutPrivacy: true, skipLicence: true });
     await signOutClient(db, session.sessionId);
     return reply.clearCookie(PORTAL_COOKIE, { path: "/api/portal" }).code(204).send();
   });
@@ -179,14 +193,17 @@ export const portalRoutes: FastifyPluginAsyncZod<Deps> = async (app, deps) => {
     "/me",
     { schema: { body: z.object({ locale: z.enum(LOCALES) }) } },
     async (request, reply) => {
-      const s = await requireClient(request, { allowWithoutPrivacy: true });
+      const s = await requireClient(request, {
+        allowWithoutPrivacy: true,
+        allowWhenReadOnly: true,
+      });
       await setClientLocale(db, s, request.body.locale);
       return reply.code(204).send();
     },
   );
 
   app.post("/privacy/accept", async (request, reply) => {
-    const s = await requireClient(request, { allowWithoutPrivacy: true });
+    const s = await requireClient(request, { allowWithoutPrivacy: true, allowWhenReadOnly: true });
     await acceptPrivacy(db, s);
     return reply.code(204).send();
   });

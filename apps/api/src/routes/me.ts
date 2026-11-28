@@ -4,6 +4,7 @@ import type { Db } from "@kleidi/db";
 import { AppError } from "@kleidi/kernel";
 import { listMyFirms, ROLES } from "@kleidi/modules/firms";
 import { findUsersByIds, LOCALES, updateProfile } from "@kleidi/modules/identity";
+import { accessFor, type Licensing } from "@kleidi/modules/licensing";
 import type { Context } from "../plugins/context.ts";
 
 const Me = z.object({
@@ -23,14 +24,29 @@ const Me = z.object({
       slug: z.string(),
       jurisdictionCode: z.string(),
       role: z.enum(ROLES),
+      // What the firm's licence allows now: everything, reading only, or nothing. `ending` is
+      // set once the licence has ended and says when the firm becomes read-only.
+      access: z.enum(["full", "read", "none"]),
+      ending: z.string().nullable(),
     }),
   ),
 });
 
-export const meRoutes: FastifyPluginAsyncZod<{ db: Db; ctx: Context }> = async (
-  app,
-  { db, ctx },
-) => {
+export const meRoutes: FastifyPluginAsyncZod<{
+  db: Db;
+  ctx: Context;
+  licensing: Licensing;
+}> = async (app, { db, ctx, licensing }) => {
+  /** A firm's licence for the web app's notices. If it cannot be read, the firm routes say so. */
+  async function licenceNotice(firmId: string) {
+    const licence = await licensing.forFirm(firmId).catch(() => undefined);
+    if (licence === undefined) return { access: "full" as const, ending: null };
+    return {
+      access: accessFor(licence),
+      ending: licence?.status === "grace" ? licence.graceEndsAt : null,
+    };
+  }
+
   // Allowed before two-factor setup, so the web app knows where to send the user next.
   app.get("/me", { schema: { response: { 200: Me } } }, async (request) => {
     const user = await ctx.currentUser(request);
@@ -47,7 +63,12 @@ export const meRoutes: FastifyPluginAsyncZod<{ db: Db; ctx: Context }> = async (
         smsReminders: profile?.smsReminders ?? false,
         twoFactorEnabled: user.twoFactorEnabled,
       },
-      firms: await listMyFirms(db, user.userId),
+      firms: await Promise.all(
+        (await listMyFirms(db, user.userId)).map(async (firm) => ({
+          ...firm,
+          ...(await licenceNotice(firm.id)),
+        })),
+      ),
     };
   });
 

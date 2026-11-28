@@ -1,4 +1,4 @@
-export { createAuth, type Auth, type AuthOptions } from "./auth.ts";
+export { createAuth, LICENCE_HEADER, type Auth, type AuthOptions } from "./auth.ts";
 export {
   findUsersByIds,
   LOCALES,

@@ -1,4 +1,5 @@
 import { betterAuth } from "better-auth";
+import { APIError, createAuthMiddleware } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { twoFactor } from "better-auth/plugins";
 import type { Db } from "@kleidi/db";
@@ -17,6 +18,12 @@ export type AuthOptions = {
     locale: string;
     url: string;
   }) => Promise<void>;
+  /**
+   * Decides whether an address may make an account. Left out, anyone may. Kleidi is not open
+   * to sign-up, so the API allows only people a firm has invited and people a licence names.
+   * `licenceId` is what the sign-up page sent in the licence header, if anything.
+   */
+  maySignUp?: (request: { email: string; licenceId: string | undefined }) => Promise<boolean>;
   /** Sends the single-use link that lets a user who forgot their password choose a new one. */
   sendResetPasswordEmail: (message: {
     to: string;
@@ -25,6 +32,9 @@ export type AuthOptions = {
     url: string;
   }) => Promise<void>;
 };
+
+/** The header the sign-up page sends the licence id in, when someone is setting a firm up. */
+export const LICENCE_HEADER = "x-kleidi-licence";
 
 /** How long a password reset link works. The email template says the same. */
 const RESET_PASSWORD_TTL_SECONDS = 60 * 60;
@@ -89,6 +99,19 @@ export function createAuth(options: AuthOptions) {
       additionalFields: {
         locale: { type: "string", required: false, defaultValue: "en", input: true },
       },
+    },
+    hooks: {
+      before: createAuthMiddleware(async (ctx) => {
+        if (ctx.path !== "/sign-up/email" || !options.maySignUp) return;
+        const email = String((ctx.body as { email?: unknown } | undefined)?.email ?? "");
+        const licenceId = ctx.headers?.get(LICENCE_HEADER) ?? undefined;
+        if (!(await options.maySignUp({ email: email.trim().toLowerCase(), licenceId }))) {
+          throw new APIError("FORBIDDEN", {
+            code: "SIGN_UP_CLOSED",
+            message: "Kleidi is open to licensed firms and the people they invite.",
+          });
+        }
+      }),
     },
     session: { expiresIn: 60 * 60 * 12, updateAge: 60 * 60 },
     plugins: [twoFactor({ issuer: "Kleidi" })],

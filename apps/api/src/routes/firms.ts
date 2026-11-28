@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { Db } from "@kleidi/db";
 import { AppError } from "@kleidi/kernel";
 import { createFirm, inviteMember, listTeam, removeMember, ROLES } from "@kleidi/modules/firms";
+import { licenceToSetUp, type Licensing } from "@kleidi/modules/licensing";
 import type { Context } from "../plugins/context.ts";
 
 const Firm = z.object({
@@ -35,7 +36,8 @@ export const firmRoutes: FastifyPluginAsyncZod<{
   ctx: Context;
   // When set, only these addresses may create a firm: pilot firms are onboarded, not self-serve.
   firmCreators?: string[] | undefined;
-}> = async (app, { db, ctx, firmCreators }) => {
+  licensing: Licensing;
+}> = async (app, { db, ctx, firmCreators, licensing }) => {
   app.post(
     "/firms",
     {
@@ -44,6 +46,8 @@ export const firmRoutes: FastifyPluginAsyncZod<{
           name: z.string().min(2).max(120),
           // Two-letter code from GET /jurisdictions. Cyprus when left out.
           jurisdictionCode: z.string().length(2).toUpperCase().optional(),
+          // The licence the firm is being set up under. Needed wherever licences are checked.
+          licenceId: z.uuid().optional(),
         }),
         response: { 201: Firm },
       },
@@ -57,10 +61,20 @@ export const firmRoutes: FastifyPluginAsyncZod<{
           "firmCreationClosed",
         );
       }
+      // A firm exists only under a licence issued to the person setting it up. The firm takes
+      // the licence's id, and the licence is bound before the firm is kept, so a firm is never
+      // left without its licence and a retry after a failure finishes the same firm.
+      const licence = licensing.enabled
+        ? await licenceToSetUp(licensing, request.body.licenceId, user.email)
+        : null;
       const firm = await createFirm(db, {
         name: request.body.name,
         jurisdictionCode: request.body.jurisdictionCode,
         actor: user,
+        id: licence?.id,
+        beforeCommit: licence
+          ? async (made) => void (await licensing.bind(licence.id, made.id))
+          : undefined,
       });
       return reply.code(201).send({
         id: firm.id,
@@ -85,12 +99,13 @@ export const firmRoutes: FastifyPluginAsyncZod<{
       },
     },
     async (request, reply) => {
-      const { user, firm } = await ctx.requireFirm(request);
+      const { user, firm, licence } = await ctx.requireFirm(request);
       const invitation = await inviteMember(db, {
         firm,
         actor: user,
         email: request.body.email,
         role: request.body.role,
+        seats: licence?.seats,
       });
       return reply.code(201).send(invitation);
     },

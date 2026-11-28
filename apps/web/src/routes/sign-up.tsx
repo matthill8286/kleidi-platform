@@ -3,7 +3,7 @@ import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { AuthLayout, ErrorAlert, Field } from "../components/ui.tsx";
 import { authClient } from "../lib/auth.ts";
-import { loadMe, redirectSearch } from "../lib/session.ts";
+import { licenceInRedirect, loadMe, redirectSearch } from "../lib/session.ts";
 import { useErrorText } from "../lib/errors.ts";
 
 export const Route = createFileRoute("/sign-up")({
@@ -29,13 +29,19 @@ function SignUp() {
     setBusy(true);
     setError(null);
     const email = String(form.get("email"));
-    const { error: failed } = await authClient.signUp.email({
-      name: String(form.get("name")),
-      email,
-      password: String(form.get("password")),
-      // The emailed link signs them in and continues to two-factor setup.
-      callbackURL: next ? `/security?redirect=${encodeURIComponent(next)}` : "/security",
-    });
+    // Kleidi is not open to sign-up. Someone setting a firm up arrives from a licence link,
+    // and the licence's id tells the API they may make an account. Invited people need nothing.
+    const licence = licenceInRedirect(next);
+    const { error: failed } = await authClient.signUp.email(
+      {
+        name: String(form.get("name")),
+        email,
+        password: String(form.get("password")),
+        // The emailed link signs them in and continues to two-factor setup.
+        callbackURL: next ? `/security?redirect=${encodeURIComponent(next)}` : "/security",
+      },
+      licence ? { headers: { "x-kleidi-licence": licence } } : undefined,
+    );
     setBusy(false);
     if (failed) return setError(errorText(failed));
     return setSentTo(email);

@@ -11,6 +11,11 @@ const Env = z.object({
   TRUSTED_PROXIES: z.coerce.number().int().min(0).default(0),
   // Comma-separated emails allowed to create a firm. Unset means anyone may (local only).
   FIRM_CREATORS: z.string().optional(),
+  // The Impakt account service, which holds each firm's licence: its address on the private
+  // network and Kleidi's service token there. With both set, Kleidi is closed to sign-up and a
+  // firm works only under a licence. Unset, licences are not checked (local only).
+  ACCOUNT_INTERNAL_URL: z.string().url().optional(),
+  ACCOUNT_TOKEN: z.string().min(32).optional(),
   BETTER_AUTH_SECRET: z.string().min(32, "BETTER_AUTH_SECRET must be at least 32 characters"),
   S3_ENDPOINT: z.string().url(),
   // The host browsers use for signed links; locally the Vite proxy forwards it to storage.
@@ -31,6 +36,15 @@ export function firmCreators(env: Env): string[] | undefined {
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean);
   return list.length > 0 ? list : undefined;
+}
+
+/** Where to read licences from, or undefined when licences are not checked. */
+export function licensingConfig(env: Env): { url: string; token: string } | undefined {
+  if (!env.ACCOUNT_INTERNAL_URL && !env.ACCOUNT_TOKEN) return undefined;
+  if (!env.ACCOUNT_INTERNAL_URL || !env.ACCOUNT_TOKEN) {
+    throw new Error("Set both ACCOUNT_INTERNAL_URL and ACCOUNT_TOKEN, or neither.");
+  }
+  return { url: env.ACCOUNT_INTERNAL_URL, token: env.ACCOUNT_TOKEN };
 }
 
 export const storageConfig = (env: Env) => ({

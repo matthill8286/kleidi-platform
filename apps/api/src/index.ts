@@ -1,14 +1,26 @@
 import { createDb } from "@kleidi/db";
 import { createAssistClient, createS3Store } from "@kleidi/modules/documents";
 import { asLocale, createNotifierFromEnv } from "@kleidi/modules/notifications";
+import { hasPendingInvitation } from "@kleidi/modules/firms";
 import { createAuth } from "@kleidi/modules/identity";
+import { createLicensing, mayStartLicence } from "@kleidi/modules/licensing";
 import { buildApp } from "./app.ts";
-import { firmCreators, loadEnv, storageConfig } from "./env.ts";
+import { firmCreators, licensingConfig, loadEnv, storageConfig } from "./env.ts";
 
 const env = loadEnv();
 const { db, close } = createDb(env.DATABASE_URL);
 const notifier = createNotifierFromEnv(process.env);
+const licences = licensingConfig(env);
+const licensing = licences ? createLicensing(licences) : undefined;
 const auth = createAuth({
+  // With licences checked, only people a firm invited or a licence names may make an account.
+  ...(licensing
+    ? {
+        maySignUp: async ({ email, licenceId }) =>
+          (await hasPendingInvitation(db, email)) ||
+          (await mayStartLicence(licensing, licenceId, email)),
+      }
+    : {}),
   sendVerificationEmail: async ({ to, name, locale, url }) => {
     await notifier.send({
       channel: "email",
@@ -49,10 +61,17 @@ const app = await buildApp({
   trustedProxies: env.TRUSTED_PROXIES,
   production: env.NODE_ENV === "production",
   firmCreators: firmCreators(env),
+  licensing,
   webOrigin: env.WEB_ORIGIN,
   webDist: env.WEB_DIST,
   logger: true,
 });
+
+app.log.info(
+  licensing
+    ? "Licences are checked with the account service, and sign-up is closed."
+    : "Licences are not checked: ACCOUNT_INTERNAL_URL and ACCOUNT_TOKEN are not set.",
+);
 
 const shutdown = async () => {
   await app.close();
