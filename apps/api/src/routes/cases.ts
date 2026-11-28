@@ -18,6 +18,7 @@ import {
   TENURES,
   transitionCase,
 } from "@kleidi/modules/cases";
+import { caseLimit } from "@kleidi/modules/licensing";
 import type { Context } from "../plugins/context.ts";
 import type { Idempotent } from "../plugins/idempotency.ts";
 
@@ -156,9 +157,14 @@ export const caseRoutes: FastifyPluginAsyncZod<{
       },
     },
     async (request, reply) => {
-      const { user, firm } = await ctx.requireFirm(request);
+      const { user, firm, licence } = await ctx.requireFirm(request);
       return idempotent(request, reply, user.userId, async () => {
-        const created = await openCase(db, { ...request.body, firm, actor: user });
+        const created = await openCase(db, {
+          ...request.body,
+          firm,
+          actor: user,
+          caseLimit: caseLimit(licence),
+        });
         const result = await detail(firm.firmId, created.id);
         return {
           ...result,

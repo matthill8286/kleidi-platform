@@ -7,6 +7,7 @@
 - A new firm-scoped table needs `firm_id` and an entry in `FIRM_SCOPED_TABLES`; the RLS test fails otherwise.
 - State changes publish domain events with `publishEvents(tx, events)` in the same transaction. Side effects in other modules (audit, email) are event consumers in `apps/worker/src/consumers.ts`, wrapped in `handleOnce` so redelivery is safe.
 - `audit_events` is append-only and is written only by the audit consumer. Never put secrets (tokens) in audit metadata.
+- A firm works only under a licence from the Impakt account service (`packages/modules/src/licensing`). `requireFirm` and the portal's `requireClient` check it, so a new route that changes firm data must not use GET, and must go through one of them. Tests and local runs leave licensing off; `apps/api/test/licensing.test.ts` shows how to turn it on.
 - Firm users must have two-factor sign-in on; the API returns `two_factor_required` otherwise.
 - Every user-facing string goes in all three locale files in `packages/i18n`; a test checks the keys match. Greek and Russian strings are drafts pending professional translation.
 - A client sees only their own uploads and firm uploads on documents shared with clients; never another party's files.

@@ -3,17 +3,23 @@ import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { AuthLayout, ErrorAlert, Field, Icon } from "../components/ui.tsx";
 import { api, setActiveFirm } from "../lib/api.ts";
-import { loadMe, ME_KEY } from "../lib/session.ts";
+import { licenceId, loadMe, ME_KEY } from "../lib/session.ts";
 import { useErrorText } from "../lib/errors.ts";
 import { useJurisdictions } from "../lib/cases.ts";
 
 export const Route = createFileRoute("/onboarding")({
-  beforeLoad: async ({ context, location }) => {
+  // A licence link looks like /onboarding?licence=<id>.
+  validateSearch: (search: Record<string, unknown>): { licence?: string } => {
+    const licence = licenceId(search.licence);
+    return licence ? { licence } : {};
+  },
+  beforeLoad: async ({ context, location, search }) => {
     const me = await loadMe(context.queryClient);
     if (!me) throw redirect({ to: "/sign-in", search: { redirect: location.href } });
     if (!me.user.twoFactorEnabled)
       throw redirect({ to: "/security", search: { redirect: location.href } });
-    if (me.firms.length > 0) throw redirect({ to: "/" });
+    // Someone who already has a firm comes here only to set up another one under a new licence.
+    if (me.firms.length > 0 && !search.licence) throw redirect({ to: "/" });
   },
   component: Onboarding,
 });
@@ -23,6 +29,7 @@ function Onboarding() {
   const errorText = useErrorText();
   const router = useRouter();
   const { queryClient } = Route.useRouteContext();
+  const { licence } = Route.useSearch();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const jurisdictions = useJurisdictions();
@@ -36,6 +43,7 @@ function Onboarding() {
       const firm = await api.createFirm(
         String(data.get("name")),
         String(data.get("jurisdiction") ?? "CY"),
+        licence,
       );
       setActiveFirm(firm.id);
       await queryClient.invalidateQueries({ queryKey: ME_KEY });

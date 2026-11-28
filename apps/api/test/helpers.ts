@@ -73,9 +73,19 @@ export const uniqueEmail = (name: string) =>
   `${name.toLowerCase().replace(/[^a-z0-9]+/g, ".")}.${randomUUID().slice(0, 8)}@example.test`;
 
 /** Signs up and completes authenticator-app setup, returning a fully enrolled client. */
-export async function enrolledUser(app: FastifyInstance, name: string, email = uniqueEmail(name)) {
+export async function enrolledUser(
+  app: FastifyInstance,
+  name: string,
+  email = uniqueEmail(name),
+  // Extra sign-up headers, such as the licence a firm is being set up under.
+  signUpHeaders: Record<string, string> = {},
+) {
   const c = client(app);
-  const signUp = await c.post("/api/auth/sign-up/email", { name, email, password: TEST_PASSWORD });
+  const signUp = await c.post(
+    "/api/auth/sign-up/email",
+    { name, email, password: TEST_PASSWORD },
+    signUpHeaders,
+  );
   if (signUp.statusCode !== 200)
     throw new Error(`sign-up failed: ${signUp.statusCode} ${signUp.body}`);
   await verifyEmail(c, email);

@@ -53,6 +53,8 @@ These secrets are already set: `DB_ADMIN_PASSWORD`, `DB_APP_PASSWORD`, `AUTH_SEC
 | Variable | `ACME_EMAIL`                             | Your email, for certificate expiry warnings                                 |
 | Variable | `MAIL_FROM_ADDRESS`                      | The address Kleidi sends from, on your Brevo-authenticated domain           |
 | Variable | `FIRM_CREATORS`                          | Comma-separated emails allowed to create a firm. Leave empty to let anyone. |
+| Variable | `ACCOUNT_INTERNAL_URL`                   | The Impakt account service on the private network. See Licences below       |
+| Secret   | `ACCOUNT_TOKEN`                          | Kleidi's service token at the account service. See Licences below           |
 | Variable | `BACKUP_BUCKET`                          | Optional: a Scaleway bucket for offsite copies                              |
 | Secret   | `BACKUP_ACCESS_KEY`, `BACKUP_SECRET_KEY` | Optional: a Scaleway API key that can write to that bucket                  |
 
@@ -111,3 +113,16 @@ The same stack runs on a Mac with Docker. Copy `infra/server` to a scratch folde
 - `SMTP_HOST=host.docker.internal`, so mail goes to Mailpit.
 
 Generate `s3.json` from the template, build the three images with `docker build --target`, then run `docker compose --profile release run --rm migrate` and `docker compose up -d`. This is how the set-up was tested before release: sign-up, email verification, two-factor sign-in, a case, an upload through Caddy, the ClamAV scan and the download all passed.
+
+## Licences
+
+Kleidi is not open to sign-up. With `ACCOUNT_INTERNAL_URL` and `ACCOUNT_TOKEN` both set, the API reads each firm's licence from the Impakt account service, and the log says "Licences are checked". With neither set, licences are not checked, which is for local development only.
+
+- **Who may make an account.** Only a person a firm has invited, and a person a licence names who opens that licence's link.
+- **Setting a firm up.** Issue the licence at the account service's `/operator` page, then send the customer `https://<APP_HOSTNAME>/onboarding?licence=<licence id>`. They sign up, set up two-factor sign-in and name the firm. The firm is bound to the licence as it is made, and the licence cannot be used again.
+- **What a licence's status allows.** `active` and `grace` allow everything, and `grace` shows the firm a notice. `read_only` lets staff and portal clients read, and refuses every change. `pending`, `expired` and `suspended` refuse the firm, and so does having no licence. People can still sign in, for any other firm they belong to.
+- **Limits.** `seats` caps lawyers and staff, counting pending invitations, and an empty value means no limit. The `casesOpened` limit caps the sales a firm may open.
+- **If the account service is down.** The API uses each firm's last answer for up to a day. A firm it has no answer for is refused until the account service is back.
+- **Firms that existed before licences.** Issue each one a licence and bind it on the operator page, with the firm's id from the `firms` table, before setting the two variables. A firm without a licence stops working as soon as they are set.
+
+The worker does not check licences yet, so reminders still go out for a firm whose licence has ended.

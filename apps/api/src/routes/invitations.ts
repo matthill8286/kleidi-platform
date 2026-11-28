@@ -2,14 +2,16 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import type { Db } from "@kleidi/db";
 import { acceptInvitation, previewInvitation, ROLES } from "@kleidi/modules/firms";
+import type { Licensing } from "@kleidi/modules/licensing";
 import type { Context } from "../plugins/context.ts";
 
 const Token = z.object({ token: z.string().min(20).max(200) });
 
-export const invitationRoutes: FastifyPluginAsyncZod<{ db: Db; ctx: Context }> = async (
-  app,
-  { db, ctx },
-) => {
+export const invitationRoutes: FastifyPluginAsyncZod<{
+  db: Db;
+  ctx: Context;
+  licensing: Licensing;
+}> = async (app, { db, ctx, licensing }) => {
   // Public: shows the invitee which firm invited them before they sign up or sign in.
   app.get(
     "/invitations/:token",
@@ -39,7 +41,11 @@ export const invitationRoutes: FastifyPluginAsyncZod<{ db: Db; ctx: Context }> =
     },
     async (request) => {
       const user = await ctx.requireUser(request);
-      return acceptInvitation(db, { token: request.params.token, actor: user });
+      return acceptInvitation(db, {
+        token: request.params.token,
+        actor: user,
+        seatsFor: async (firmId) => (await licensing.forFirm(firmId))?.seats ?? null,
+      });
     },
   );
 };

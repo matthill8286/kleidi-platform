@@ -402,7 +402,8 @@
       "TOO_MANY_ATTEMPTS": "Too many attempts. Wait a few minutes and try again.",
       "TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE": "Too many attempts. Request a new code.",
       "EMAIL_NOT_VERIFIED": "Confirm your email first. We have sent you a new link.",
-      "INVALID_TOKEN": "This reset link has expired or was already used. Ask for a new one."
+      "INVALID_TOKEN": "This reset link has expired or was already used. Ask for a new one.",
+      "SIGN_UP_CLOSED": "Kleidi is open to licensed firms and the people they invite. Use the link in your invitation, or contact us."
     },
     "deadlineTitle": "Give the deadline a title.",
     "deadlinePast": "The deadline must be in the future.",
@@ -449,7 +450,16 @@
     "leaseReviewNotApplicable": "Lease reviews are for leasehold sales in England and Wales.",
     "leaseUnsupported": "The lease must be a PDF or an image up to 15 MB.",
     "leaseReviewApproved": "This lease review has been approved and can no longer change.",
-    "leaseReviewNotFound": "Lease review not found."
+    "leaseReviewNotFound": "Lease review not found.",
+    "licenceInactive": "This firm's Kleidi licence is not active. Contact us to renew it.",
+    "licenceReadOnly": "This firm's Kleidi licence has ended, so nothing can be changed. Contact us to renew it.",
+    "licenceUnavailable": "Kleidi cannot check this firm's licence right now. Try again shortly.",
+    "licenceNotFound": "That licence was not found. Use the link we sent you.",
+    "licenceUsed": "This licence has already been used to set up a firm.",
+    "licenceNotActive": "This licence is not active. Contact us.",
+    "licenceNotYours": "This licence was issued to another email address. Sign in with that address.",
+    "seatsFull": "Everyone your firm's licence allows has joined or been invited. Contact us to add people.",
+    "caseLimitReached": "Your firm's licence covers {{limit}} sales, and all of them have been opened. Contact us to open more."
   },
   "deadlines": {
     "heading": "Deadlines",
@@ -643,5 +653,10 @@
     "save": "Save changes",
     "approve": "Approve and share with the buyer",
     "approving": "Translating and sharing…"
+  },
+  "licence": {
+    "inactive": "This firm's Kleidi licence is not active, so the firm cannot be used. Contact us to renew it.",
+    "readOnly": "This firm's Kleidi licence has ended. You can read everything, and nothing can be changed until it is renewed.",
+    "ending": "This firm's Kleidi licence has ended. Renew it by {{date}} to keep making changes."
   }
 }

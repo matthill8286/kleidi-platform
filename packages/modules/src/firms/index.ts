@@ -4,6 +4,7 @@ export {
   getFirmJurisdiction,
   getFirmName,
   getMembership,
+  hasPendingInvitation,
   inviteMember,
   listFirmIds,
   listFirmJurisdictions,

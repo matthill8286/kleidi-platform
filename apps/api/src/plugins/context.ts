@@ -3,6 +3,12 @@ import type { FastifyRequest } from "fastify";
 import { AppError } from "@kleidi/kernel";
 import { getMembership, type Actor, type FirmContext } from "@kleidi/modules/firms";
 import type { Auth } from "@kleidi/modules/identity";
+import {
+  isReadMethod,
+  requireLicence,
+  type Licence,
+  type Licensing,
+} from "@kleidi/modules/licensing";
 import type { Db } from "@kleidi/db";
 
 export const FIRM_HEADER = "x-kleidi-firm";
@@ -10,7 +16,7 @@ export const FIRM_HEADER = "x-kleidi-firm";
 export type SessionUser = Actor & { twoFactorEnabled: boolean; locale: string };
 
 /** Resolves who is calling and, when asked, which firm they act for. */
-export function createContext(deps: { db: Db; auth: Auth }) {
+export function createContext(deps: { db: Db; auth: Auth; licensing: Licensing }) {
   async function currentUser(request: FastifyRequest): Promise<SessionUser | null> {
     const session = await deps.auth.api.getSession({ headers: fromNodeHeaders(request.headers) });
     if (!session) return null;
@@ -44,9 +50,13 @@ export function createContext(deps: { db: Db; auth: Auth }) {
     return user;
   }
 
+  /**
+   * The caller's firm. The firm's licence is checked here, so every firm route refuses a firm
+   * that cannot be used, and refuses changes to a firm that can only be read.
+   */
   async function requireFirm(
     request: FastifyRequest,
-  ): Promise<{ user: SessionUser; firm: FirmContext }> {
+  ): Promise<{ user: SessionUser; firm: FirmContext; licence: Licence | null }> {
     const user = await requireUser(request);
     const firmId = request.headers[FIRM_HEADER];
     const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -55,7 +65,8 @@ export function createContext(deps: { db: Db; auth: Auth }) {
     }
     const role = await getMembership(deps.db, user.userId, firmId);
     if (!role) throw new AppError("forbidden", "You are not a member of this firm", "notMember");
-    return { user, firm: { firmId, role } };
+    const licence = await requireLicence(deps.licensing, firmId, !isReadMethod(request.method));
+    return { user, firm: { firmId, role }, licence };
   }
 
   return { currentUser, requireUser, requireFirm };

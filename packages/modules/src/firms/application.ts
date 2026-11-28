@@ -4,6 +4,7 @@ import { firmInvitations, firmMembers, firms } from "@kleidi/db/schema/firms";
 import { AppError, systemClock, type Clock } from "@kleidi/kernel";
 import { findUsersByIds } from "../identity/index.ts";
 import { findJurisdiction } from "../jurisdictions/index.ts";
+import { hasFreeSeat } from "../licensing/index.ts";
 import {
   canManageTeam,
   hashToken,
@@ -21,7 +22,15 @@ export type FirmContext = { firmId: string; role: Role };
 
 export async function createFirm(
   db: Db,
-  input: { name: string; actor: Actor; jurisdictionCode?: string | undefined },
+  input: {
+    name: string;
+    actor: Actor;
+    jurisdictionCode?: string | undefined;
+    /** The firm's id, when the caller must know it beforehand. Random when left out. */
+    id?: string | undefined;
+    /** Runs after the firm is written and before it is kept. If it throws, no firm is made. */
+    beforeCommit?: ((firm: { id: string }) => Promise<void>) | undefined;
+  },
 ) {
   const name = input.name.trim();
   if (name.length < 2) throw new AppError("invalid", "Firm name is too short", "firmNameShort");
@@ -41,7 +50,20 @@ export async function createFirm(
       .where(eq(firms.slug, base))
       .limit(1);
     const slug = taken.length ? `${base}-${crypto.randomUUID().slice(0, 6)}` : base;
-    const [firm] = await tx.insert(firms).values({ name, slug, jurisdictionCode }).returning();
+    if (input.id) {
+      const [exists] = await tx
+        .select({ id: firms.id })
+        .from(firms)
+        .where(eq(firms.id, input.id))
+        .limit(1);
+      if (exists) {
+        throw new AppError("conflict", "This firm has already been set up", "licenceUsed");
+      }
+    }
+    const [firm] = await tx
+      .insert(firms)
+      .values({ ...(input.id ? { id: input.id } : {}), name, slug, jurisdictionCode })
+      .returning();
     if (!firm) throw new Error("Firm insert returned no row");
     await tx
       .insert(firmMembers)
@@ -53,8 +75,29 @@ export async function createFirm(
       payload: { entityType: "firm", entityId: firm.id, name },
     };
     await publishEvents(tx, [event]);
+    await input.beforeCommit?.(firm);
     return firm;
   });
+}
+
+/** Whether someone has invited this address to a firm and the invitation can still be used. */
+export async function hasPendingInvitation(
+  db: Db,
+  email: string,
+  clock: Clock = systemClock,
+): Promise<boolean> {
+  const [row] = await db
+    .select({ id: firmInvitations.id })
+    .from(firmInvitations)
+    .where(
+      and(
+        eq(firmInvitations.email, normaliseEmail(email)),
+        isNull(firmInvitations.acceptedAt),
+        gt(firmInvitations.expiresAt, clock.now()),
+      ),
+    )
+    .limit(1);
+  return Boolean(row);
 }
 
 export function listMyFirms(db: Db, userId: string) {
@@ -157,7 +200,14 @@ export async function listTeam(db: Db, firmId: string, clock: Clock = systemCloc
 
 export async function inviteMember(
   db: Db,
-  input: { firm: FirmContext; actor: Actor; email: string; role: Role },
+  input: {
+    firm: FirmContext;
+    actor: Actor;
+    email: string;
+    role: Role;
+    /** How many people the firm's licence allows. Null or left out for no limit. */
+    seats?: number | null | undefined;
+  },
   clock: Clock = systemClock,
 ) {
   if (!canManageTeam(input.firm.role))
@@ -166,6 +216,15 @@ export async function inviteMember(
   const team = await listTeam(db, input.firm.firmId, clock);
   if (team.members.some((m) => normaliseEmail(m.email) === email)) {
     throw new AppError("conflict", "That person is already a member of this firm", "alreadyMember");
+  }
+  // Inviting the same address again replaces nothing, so it must not count twice.
+  const others = team.invitations.filter((i) => i.email !== email).length;
+  if (!hasFreeSeat(input.seats ?? null, team.members.length, others)) {
+    throw new AppError(
+      "conflict",
+      "Everyone your firm's licence allows has joined or been invited. Contact us to add people.",
+      "seatsFull",
+    );
   }
   return db.transaction(async (tx) => {
     const [firm] = await tx.select().from(firms).where(eq(firms.id, input.firm.firmId)).limit(1);
@@ -224,7 +283,12 @@ export async function previewInvitation(db: Db, token: string, clock: Clock = sy
 
 export async function acceptInvitation(
   db: Db,
-  input: { token: string; actor: Actor },
+  input: {
+    token: string;
+    actor: Actor;
+    /** How many people a firm's licence allows, or null for no limit. Left out: no limit. */
+    seatsFor?: ((firmId: string) => Promise<number | null>) | undefined;
+  },
   clock: Clock = systemClock,
 ) {
   return db.transaction(async (tx) => {
@@ -252,6 +316,23 @@ export async function acceptInvitation(
         "invitationOtherEmail",
         { email: invitation.email },
       );
+    }
+    const seats = input.seatsFor ? await input.seatsFor(invitation.firmId) : null;
+    if (seats !== null) {
+      // Locking the members makes two people accepting at once take turns for the last seat.
+      const members = await tx
+        .select({ userId: firmMembers.userId })
+        .from(firmMembers)
+        .where(eq(firmMembers.firmId, invitation.firmId))
+        .for("update");
+      const already = members.some((m) => m.userId === input.actor.userId);
+      if (!already && !hasFreeSeat(seats, members.length)) {
+        throw new AppError(
+          "conflict",
+          "This firm has no place left on its licence. Ask the firm's admin.",
+          "seatsFull",
+        );
+      }
     }
     await tx
       .insert(firmMembers)

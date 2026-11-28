@@ -89,6 +89,23 @@ function Shell() {
             {t("nav.signOut")}
           </button>
         </header>
+        {firm.access === "none" ? (
+          <div className="alert error" role="alert" style={{ margin: "16px 24px 0" }}>
+            {t("licence.inactive")}
+          </div>
+        ) : firm.access === "read" ? (
+          <div className="alert warn" role="status" style={{ margin: "16px 24px 0" }}>
+            {t("licence.readOnly")}
+          </div>
+        ) : firm.ending ? (
+          <div className="alert warn" role="status" style={{ margin: "16px 24px 0" }}>
+            {t("licence.ending", {
+              date: new Date(firm.ending).toLocaleDateString(i18n.resolvedLanguage, {
+                dateStyle: "long",
+              }),
+            })}
+          </div>
+        ) : null}
         <Outlet />
       </div>
     </div>
